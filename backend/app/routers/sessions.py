@@ -1,0 +1,170 @@
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.db import get_pool
+from app.deps import get_current_user
+from app.llm import call_llm_json
+from app.prompts import build_question_generation_prompt
+from app.schemas import CreateSessionRequest, QuestionOut, SessionListItem, SessionOut
+
+router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+@router.post("", response_model=SessionOut)
+async def create_session(body: CreateSessionRequest, user_id: str = Depends(get_current_user)):
+    pool = get_pool()
+
+    user_row = await pool.fetchrow("SELECT resume_parsed FROM users WHERE id = $1", user_id)
+    resume_parsed = user_row["resume_parsed"] if user_row else None
+    resume_parsed_json = resume_parsed if resume_parsed else "(no resume on file)"
+
+    previous_rows = await pool.fetch(
+        """
+        SELECT q.text
+        FROM questions q
+        JOIN interview_sessions s ON s.id = q.session_id
+        WHERE s.user_id = $1
+        ORDER BY s.created_at DESC, q.order_index DESC
+        LIMIT 30
+        """,
+        user_id,
+    )
+    previous_questions = "\n".join(f"- {r['text']}" for r in previous_rows)
+
+    prompt = build_question_generation_prompt(
+        role=body.role,
+        interview_type=body.interview_type,
+        difficulty=body.difficulty,
+        question_count=body.question_count,
+        resume_parsed_json=resume_parsed_json,
+        previous_questions=previous_questions,
+    )
+    generated = await call_llm_json(prompt, temperature=0.9)
+    questions = generated.get("questions", [])
+    if not questions:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI service did not return any questions. Please try again.",
+        )
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            session_row = await conn.fetchrow(
+                """
+                INSERT INTO interview_sessions (user_id, role, difficulty, interview_type, question_count)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id, role, difficulty, interview_type, question_count, created_at
+                """,
+                user_id,
+                body.role,
+                body.difficulty,
+                body.interview_type,
+                body.question_count,
+            )
+            session_id = session_row["id"]
+
+            question_rows = []
+            for index, q in enumerate(questions):
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO questions (session_id, text, type, targets, order_index)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING id, text, type, targets, order_index
+                    """,
+                    session_id,
+                    q["text"],
+                    q.get("type", "technical"),
+                    q.get("targets"),
+                    index,
+                )
+                question_rows.append(row)
+
+    return SessionOut(
+        id=str(session_row["id"]),
+        role=session_row["role"],
+        difficulty=session_row["difficulty"],
+        interview_type=session_row["interview_type"],
+        question_count=session_row["question_count"],
+        created_at=session_row["created_at"],
+        questions=[
+            QuestionOut(
+                id=str(r["id"]),
+                text=r["text"],
+                type=r["type"],
+                targets=r["targets"],
+                order_index=r["order_index"],
+            )
+            for r in question_rows
+        ],
+    )
+
+
+@router.get("/{session_id}", response_model=SessionOut)
+async def get_session(session_id: str, user_id: str = Depends(get_current_user)):
+    pool = get_pool()
+    session_row = await pool.fetchrow(
+        """
+        SELECT id, role, difficulty, interview_type, question_count, created_at
+        FROM interview_sessions
+        WHERE id = $1 AND user_id = $2
+        """,
+        session_id,
+        user_id,
+    )
+    if session_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+
+    question_rows = await pool.fetch(
+        """
+        SELECT id, text, type, targets, order_index
+        FROM questions
+        WHERE session_id = $1
+        ORDER BY order_index ASC
+        """,
+        session_id,
+    )
+
+    return SessionOut(
+        id=str(session_row["id"]),
+        role=session_row["role"],
+        difficulty=session_row["difficulty"],
+        interview_type=session_row["interview_type"],
+        question_count=session_row["question_count"],
+        created_at=session_row["created_at"],
+        questions=[
+            QuestionOut(
+                id=str(r["id"]),
+                text=r["text"],
+                type=r["type"],
+                targets=r["targets"],
+                order_index=r["order_index"],
+            )
+            for r in question_rows
+        ],
+    )
+
+
+@router.get("", response_model=list[SessionListItem])
+async def list_sessions(user_id: str = Depends(get_current_user)):
+    pool = get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT id, role, difficulty, interview_type, question_count, created_at
+        FROM interview_sessions
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        """,
+        user_id,
+    )
+    return [
+        SessionListItem(
+            id=str(r["id"]),
+            role=r["role"],
+            difficulty=r["difficulty"],
+            interview_type=r["interview_type"],
+            question_count=r["question_count"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]

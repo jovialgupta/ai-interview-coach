@@ -1,0 +1,163 @@
+"""All LLM prompt templates, kept in one place per project convention.
+
+Every prompt must produce JSON only. Callers strip markdown code fences and
+parse with a single retry (see app/llm.py).
+"""
+
+RESUME_EXTRACTION_PROMPT = """Extract structured data from this resume. Focus on technical substance.
+
+{resume_text}
+
+Return only JSON, no other text:
+{{
+  "skills": ["..."],
+  "projects": [
+    {{"name": "...", "tech": ["..."], "what_it_does": "...", "notable_decisions": "..."}}
+  ],
+  "experience": [{{"org": "...", "role": "...", "work": "..."}}],
+  "education": {{"degree": "...", "year": "..."}}
+}}
+
+For notable_decisions, capture any specific technical choice mentioned (a database,
+a caching layer, an architecture decision). Use null if none stated.
+"""
+
+
+QUESTION_GENERATION_PROMPT = """You are an experienced technical interviewer for entry-level candidates in India.
+
+Role: {role}
+Interview type: {interview_type}
+Difficulty: {difficulty}
+Number of questions: {question_count}
+
+Candidate background:
+{resume_parsed_json}
+
+Previously asked to this candidate (do not repeat or ask minor variations):
+{previous_questions}
+
+{type_rules}
+
+Rules:
+- At least 60% of questions must reference their actual named projects or skills
+- Probe specific decisions: if they used Redis, ask why not Postgres
+- Do not ask anything answerable by reading the resume itself
+- Each question answerable in 3-5 sentences of speech
+- No questions requiring code to be written out
+- If their background does not match the chosen role, state that in one sentence in
+  the first question's text, then bridge from what they have done toward this role
+
+Return only JSON:
+{{"questions": [{{"text": "...", "type": "technical|behavioural", "targets": "..."}}]}}
+"""
+
+TYPE_RULES = {
+    "technical": "All questions must be technical.",
+    "behavioural": "All questions must be behavioural. No technical questions.",
+    "mixed": "Roughly half technical, half behavioural.",
+}
+
+
+SCORING_FRAME_PROMPT = """Score this interview answer.
+
+Role: {role}
+Question: {question_text}
+Answer: {answer_text}
+
+{rubric}
+
+For each dimension, first quote the specific evidence from the answer, then give the
+score. Score based only on what is present in the answer.
+
+{transcript_note}
+
+Return only JSON:
+{{
+  "structure":       {{"evidence": "...", "score": 1-5}},
+  "technical_depth": {{"evidence": "...", "score": 1-5}},
+  "specificity":     {{"evidence": "...", "score": 1-5}},
+  "feedback": "2-3 sentences of actionable advice addressed to the candidate"
+}}
+"""
+
+TRANSCRIPT_NOTE = (
+    'This answer is a speech-to-text transcript. Ignore missing punctuation, '
+    'capitalisation, and filler words such as "umm". Judge only the organisation '
+    'and content of the ideas.'
+)
+
+TECHNICAL_RUBRIC = """structure — does the answer have a clear shape?
+  1: rambling, no clear arc
+  3: describes what they did, but the outcome is vague or missing
+  5: clear context, specific actions, measurable outcome
+
+technical_depth — does it explain the reasoning behind decisions?
+  1: names tools only ("I used React and Node")
+  3: describes what was built, but not why those choices
+  5: explains tradeoffs and alternatives considered
+
+specificity — are there concrete details?
+  1: entirely generic
+  3: some detail but no numbers or named constraints
+  5: specific numbers, constraints, named problems"""
+
+BEHAVIOURAL_RUBRIC = """structure — is there a clear situation, then action, then result?
+  1: rambles, no identifiable situation
+  3: describes a situation and action, but no result
+  5: all three present and clearly separated
+
+technical_depth — here this means reflection
+  1: recounts events with no reflection
+  3: states an outcome but no learning
+  5: says what they learned and what they would do differently
+
+specificity — is this a real, specific incident?
+  1: generic claim ("I always communicate well"), no incident
+  3: a real incident but thin on detail
+  5: named project, real stakes, concrete details"""
+
+RUBRICS = {
+    "technical": TECHNICAL_RUBRIC,
+    "behavioural": BEHAVIOURAL_RUBRIC,
+}
+
+
+def build_resume_extraction_prompt(resume_text: str) -> str:
+    return RESUME_EXTRACTION_PROMPT.format(resume_text=resume_text)
+
+
+def build_question_generation_prompt(
+    role: str,
+    interview_type: str,
+    difficulty: str,
+    question_count: int,
+    resume_parsed_json: str,
+    previous_questions: str,
+) -> str:
+    return QUESTION_GENERATION_PROMPT.format(
+        role=role,
+        interview_type=interview_type,
+        difficulty=difficulty,
+        question_count=question_count,
+        resume_parsed_json=resume_parsed_json,
+        previous_questions=previous_questions or "(none yet)",
+        type_rules=TYPE_RULES.get(interview_type, TYPE_RULES["mixed"]),
+    )
+
+
+def build_scoring_prompt(
+    role: str,
+    question_text: str,
+    answer_text: str,
+    question_type: str,
+    input_mode: str,
+) -> str:
+    rubric = RUBRICS.get(question_type, TECHNICAL_RUBRIC)
+    transcript_note = TRANSCRIPT_NOTE if input_mode == "spoken" else ""
+    return SCORING_FRAME_PROMPT.format(
+        role=role,
+        question_text=question_text,
+        answer_text=answer_text,
+        rubric=rubric,
+        transcript_note=transcript_note,
+    )

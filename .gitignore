@@ -1,0 +1,19 @@
+.env
+.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# editor
+.vscode/
+.idea/
+*.log
