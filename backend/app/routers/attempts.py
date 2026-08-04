@@ -22,15 +22,21 @@ async def _score_and_store(attempt_id: str, role: str, question_text: str, quest
     )
     result = await call_llm_json(prompt, temperature=0)
 
-    structure = result["structure"]["score"]
-    technical_depth = result["technical_depth"]["score"]
-    specificity = result["specificity"]["score"]
-    evidence = {
-        "structure": result["structure"]["evidence"],
-        "technical_depth": result["technical_depth"]["evidence"],
-        "specificity": result["specificity"]["evidence"],
-    }
-    feedback = result["feedback"]
+    try:
+        structure = result["structure"]["score"]
+        technical_depth = result["technical_depth"]["score"]
+        specificity = result["specificity"]["score"]
+        evidence = {
+            "structure": result["structure"]["evidence"],
+            "technical_depth": result["technical_depth"]["evidence"],
+            "specificity": result["specificity"]["evidence"],
+        }
+        feedback = result["feedback"]
+    except (KeyError, TypeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI service returned an unexpected response. Please try again.",
+        ) from exc
 
     pool = get_pool()
     await pool.execute(
@@ -48,6 +54,7 @@ async def _score_and_store(attempt_id: str, role: str, question_text: str, quest
     )
 
     return AttemptScoreResponse(
+        attempt_id=str(attempt_id),
         structure=structure,
         technical_depth=technical_depth,
         specificity=specificity,
@@ -91,14 +98,22 @@ async def create_attempt(body: CreateAttemptRequest, user_id: str = Depends(get_
     )
     attempt_id = attempt_row["id"]
 
-    return await _score_and_store(
-        attempt_id=attempt_id,
-        role=question_row["role"],
-        question_text=question_row["text"],
-        question_type=question_row["type"],
-        answer_text=body.answer_text,
-        input_mode=body.input_mode,
-    )
+    try:
+        return await _score_and_store(
+            attempt_id=attempt_id,
+            role=question_row["role"],
+            question_text=question_row["text"],
+            question_type=question_row["type"],
+            answer_text=body.answer_text,
+            input_mode=body.input_mode,
+        )
+    except HTTPException as exc:
+        # The answer is already saved (see comment above) — surface attempt_id so the
+        # caller can retry scoring via POST /:attempt_id/rescore instead of resubmitting.
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"message": exc.detail, "attempt_id": str(attempt_id)},
+        ) from exc
 
 
 @router.post("/{attempt_id}/rescore", response_model=AttemptScoreResponse)

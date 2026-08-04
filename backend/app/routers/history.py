@@ -16,6 +16,7 @@ async def get_history(user_id: str = Depends(get_current_user)):
         """
         SELECT
             a.id AS attempt_id,
+            sess.id AS session_id,
             a.answer_text,
             a.input_mode,
             q.text AS question_text,
@@ -28,6 +29,7 @@ async def get_history(user_id: str = Depends(get_current_user)):
         FROM attempts a
         JOIN scores s ON s.attempt_id = a.id
         LEFT JOIN questions q ON q.id = a.question_id
+        LEFT JOIN interview_sessions sess ON sess.id = q.session_id
         WHERE a.user_id = $1
         ORDER BY s.created_at ASC
         """,
@@ -36,6 +38,7 @@ async def get_history(user_id: str = Depends(get_current_user)):
     return [
         HistoryItem(
             attempt_id=str(r["attempt_id"]),
+            session_id=str(r["session_id"]),
             question_text=r["question_text"] or "",
             question_type=r["question_type"] or "",
             answer_text=r["answer_text"],

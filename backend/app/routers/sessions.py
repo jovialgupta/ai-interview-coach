@@ -42,7 +42,7 @@ async def create_session(body: CreateSessionRequest, user_id: str = Depends(get_
     )
     generated = await call_llm_json(prompt, temperature=0.9)
     questions = generated.get("questions", [])
-    if not questions:
+    if not questions or not all(isinstance(q, dict) and q.get("text") for q in questions):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The AI service did not return any questions. Please try again.",

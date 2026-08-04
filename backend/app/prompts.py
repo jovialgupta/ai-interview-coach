@@ -10,7 +10,7 @@ RESUME_EXTRACTION_PROMPT = """Extract structured data from this resume. Focus on
 
 Return only JSON, no other text:
 {{
-  "skills": ["..."],
+  "skills": ["skills should contain only technologies, tools and languages — not degrees or fields of study."],
   "projects": [
     {{"name": "...", "tech": ["..."], "what_it_does": "...", "notable_decisions": "..."}}
   ],
@@ -38,6 +38,30 @@ Previously asked to this candidate (do not repeat or ask minor variations):
 
 {type_rules}
 
+A question's type is decided by what it evaluates, not by its sentence structure.
+Many technical questions are phrased as a story ("tell me about a time you chose X
+over Y") — that phrasing does NOT make it behavioural.
+- technical: evaluates tool/domain knowledge, a technical tradeoff, or a technical
+  decision — even when phrased as "describe a project where you chose/built/debugged...".
+  Example: "Tell me about a time you picked Redis over Postgres for a queue — why?" is
+  technical, because the answer is judged on the tradeoff, not on how they behaved.
+- behavioural: evaluates conduct — collaboration, conflict, ownership, prioritization,
+  handling failure or disagreement — where the answer is judged on how they acted and
+  what they'd do differently, not on which tool or technique was correct.
+
+{difficulty_rules}
+
+Language, regardless of difficulty:
+- Plain, everyday words. Short sentences. One idea per sentence.
+- Ask about ONE technology or decision at a time — never stack two or more
+  comparisons into a single question.
+- No academic or textbook phrasing ("evaluate the trade-offs of...", "under what
+  circumstances would you..."). Ask it the way a person would say it out loud.
+- Bad (too dense): "How do you evaluate whether to store session data in an
+  in-memory key-value store like Redis versus a traditional relational database
+  like PostgreSQL, and what performance and persistence trade-offs drive that?"
+- Good (same idea, plain): "You used Redis for sessions — why not Postgres?"
+
 Rules:
 - At least 60% of questions must reference their actual named projects or skills
 - Probe specific decisions: if they used Redis, ask why not Postgres
@@ -55,6 +79,24 @@ TYPE_RULES = {
     "technical": "All questions must be technical.",
     "behavioural": "All questions must be behavioural. No technical questions.",
     "mixed": "Roughly half technical, half behavioural.",
+}
+
+DIFFICULTY_RULES = {
+    "easy": (
+        "Easy: ask about ONE tool or decision they already named, with no added "
+        "complexity or hypothetical twist. A confident answer just explains what "
+        "they did and one reason why. Do not add 'what if scale increased 10x' or "
+        "similar follow-on complications."
+    ),
+    "medium": (
+        "Medium: ask about one decision, but expect them to weigh it against one "
+        "concrete alternative they didn't pick."
+    ),
+    "hard": (
+        "Hard: you may add one realistic complication to a decision they made "
+        "(e.g. a scale increase, a new constraint) and ask how they'd adapt — but "
+        "keep the sentence short and plain even though the idea is harder."
+    ),
 }
 
 
@@ -142,6 +184,7 @@ def build_question_generation_prompt(
         resume_parsed_json=resume_parsed_json,
         previous_questions=previous_questions or "(none yet)",
         type_rules=TYPE_RULES.get(interview_type, TYPE_RULES["mixed"]),
+        difficulty_rules=DIFFICULTY_RULES.get(difficulty, DIFFICULTY_RULES["medium"]),
     )
 
 

@@ -88,6 +88,7 @@ class ScoreDimension(BaseModel):
 
 
 class AttemptScoreResponse(BaseModel):
+    attempt_id: str
     structure: int
     technical_depth: int
     specificity: int
@@ -100,6 +101,7 @@ class AttemptScoreResponse(BaseModel):
 
 class HistoryItem(BaseModel):
     attempt_id: str
+    session_id: str
     question_text: str
     question_type: str
     answer_text: str

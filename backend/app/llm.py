@@ -7,7 +7,7 @@ from google.genai import types
 
 from app.config import settings
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.6-flash"
 
 _client = genai.Client(api_key=settings.gemini_api_key)
 
