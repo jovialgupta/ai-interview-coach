@@ -1,0 +1,16 @@
+export { default as IconHome } from './assets/icons/home.svg?react'
+export { default as IconDocument } from './assets/icons/document.svg?react'
+export { default as IconClock } from './assets/icons/clock.svg?react'
+export { default as IconTrendingUp } from './assets/icons/trending-up.svg?react'
+export { default as IconLayers } from './assets/icons/layers.svg?react'
+export { default as IconBarChart } from './assets/icons/bar-chart.svg?react'
+export { default as IconStar } from './assets/icons/star.svg?react'
+export { default as IconPlay } from './assets/icons/play.svg?react'
+export { default as IconMic } from './assets/icons/mic.svg?react'
+export { default as IconWaveform } from './assets/icons/waveform.svg?react'
+export { default as IconSliders } from './assets/icons/sliders.svg?react'
+export { default as IconMoon } from './assets/icons/moon.svg?react'
+export { default as IconSun } from './assets/icons/sun.svg?react'
+/** The brand mark, and the "AI-generated" eyebrow on the landing page — a filled
+ * 4-point sparkle rather than an outline, so it reads as a mark, not a line icon. */
+export { default as IconSparkle } from './assets/icons/sparkle.svg?react'

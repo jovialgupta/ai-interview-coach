@@ -2,7 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { AuthProvider, ProtectedRoute } from './auth'
 import DashboardPage from './pages/DashboardPage'
-import HistoryPage from './pages/HistoryPage'
+import InterviewHistoryPage from './pages/InterviewHistoryPage'
+import LandingPage from './pages/LandingPage'
+import LearningJourneyPage from './pages/LearningJourneyPage'
 import Layout from './pages/Layout'
 import LoginPage from './pages/LoginPage'
 import OnboardingPage from './pages/OnboardingPage'
@@ -14,6 +16,7 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route element={<Layout />}>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route
@@ -44,12 +47,19 @@ function App() {
             path="/history"
             element={
               <ProtectedRoute>
-                <HistoryPage />
+                <InterviewHistoryPage />
               </ProtectedRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="/learning-journey"
+            element={
+              <ProtectedRoute>
+                <LearningJourneyPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </AuthProvider>

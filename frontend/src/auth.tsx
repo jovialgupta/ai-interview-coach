@@ -7,10 +7,10 @@ import { clearToken, getMe, getToken, login as apiLogin, setToken, signup as api
 interface AuthContextValue {
   user: MeResponse | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<MeResponse>
+  signup: (email: string, password: string, name: string) => Promise<MeResponse>
   logout: () => void
-  refreshUser: () => Promise<void>
+  refreshUser: () => Promise<MeResponse>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -19,9 +19,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function refreshUser(): Promise<void> {
+  async function refreshUser(): Promise<MeResponse> {
     const me = await getMe()
     setUser(me)
+    return me
   }
 
   useEffect(() => {
@@ -37,16 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  async function login(email: string, password: string): Promise<void> {
+  async function login(email: string, password: string): Promise<MeResponse> {
     const token = await apiLogin(email, password)
     setToken(token)
-    await refreshUser()
+    return refreshUser()
   }
 
-  async function signup(email: string, password: string): Promise<void> {
-    const token = await apiSignup(email, password)
+  async function signup(email: string, password: string, name: string): Promise<MeResponse> {
+    const token = await apiSignup(email, password, name)
     setToken(token)
-    await refreshUser()
+    return refreshUser()
   }
 
   function logout(): void {

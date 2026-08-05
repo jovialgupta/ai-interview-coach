@@ -78,6 +78,7 @@ export type InputMode = 'typed' | 'spoken'
 export interface MeResponse {
   id: string
   email: string
+  name: string | null
   has_resume: boolean
   resume_uploaded_at: string | null
   created_at: string
@@ -93,6 +94,7 @@ export interface QuestionOut {
   type: string
   targets: string | null
   order_index: number
+  attempt: AttemptScoreResponse | null
 }
 
 export interface SessionOut {
@@ -140,8 +142,8 @@ export interface HistoryItem {
 
 // --- auth ---
 
-export async function signup(email: string, password: string): Promise<string> {
-  const res = await client.post<{ access_token: string }>('/api/auth/signup', { email, password })
+export async function signup(email: string, password: string, name: string): Promise<string> {
+  const res = await client.post<{ access_token: string }>('/api/auth/signup', { email, password, name })
   return res.data.access_token
 }
 

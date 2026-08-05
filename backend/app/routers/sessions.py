@@ -6,7 +6,7 @@ from app.db import get_pool
 from app.deps import get_current_user
 from app.llm import call_llm_json
 from app.prompts import build_question_generation_prompt
-from app.schemas import CreateSessionRequest, QuestionOut, SessionListItem, SessionOut
+from app.schemas import AttemptScoreResponse, CreateSessionRequest, QuestionOut, SessionListItem, SessionOut
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -117,10 +117,22 @@ async def get_session(session_id: str, user_id: str = Depends(get_current_user))
 
     question_rows = await pool.fetch(
         """
-        SELECT id, text, type, targets, order_index
-        FROM questions
-        WHERE session_id = $1
-        ORDER BY order_index ASC
+        SELECT
+            q.id, q.text, q.type, q.targets, q.order_index,
+            a.id AS attempt_id, s.structure, s.technical_depth, s.specificity,
+            s.evidence, s.feedback, s.model
+        FROM questions q
+        LEFT JOIN LATERAL (
+            SELECT a.id
+            FROM attempts a
+            JOIN scores sc ON sc.attempt_id = a.id
+            WHERE a.question_id = q.id
+            ORDER BY sc.created_at DESC
+            LIMIT 1
+        ) a ON true
+        LEFT JOIN scores s ON s.attempt_id = a.id
+        WHERE q.session_id = $1
+        ORDER BY q.order_index ASC
         """,
         session_id,
     )
@@ -139,6 +151,19 @@ async def get_session(session_id: str, user_id: str = Depends(get_current_user))
                 type=r["type"],
                 targets=r["targets"],
                 order_index=r["order_index"],
+                attempt=(
+                    AttemptScoreResponse(
+                        attempt_id=str(r["attempt_id"]),
+                        structure=r["structure"],
+                        technical_depth=r["technical_depth"],
+                        specificity=r["specificity"],
+                        evidence=json.loads(r["evidence"]) if isinstance(r["evidence"], str) else (r["evidence"] or {}),
+                        feedback=r["feedback"],
+                        model=r["model"],
+                    )
+                    if r["attempt_id"] is not None
+                    else None
+                ),
             )
             for r in question_rows
         ],

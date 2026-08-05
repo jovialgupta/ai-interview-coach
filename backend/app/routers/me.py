@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api", tags=["me"])
 async def me(user_id: str = Depends(get_current_user)):
     pool = get_pool()
     row = await pool.fetchrow(
-        "SELECT id, email, resume_uploaded_at, created_at FROM users WHERE id = $1",
+        "SELECT id, email, name, resume_uploaded_at, created_at FROM users WHERE id = $1",
         user_id,
     )
     if row is None:
@@ -20,6 +20,7 @@ async def me(user_id: str = Depends(get_current_user)):
     return MeResponse(
         id=str(row["id"]),
         email=row["email"],
+        name=row["name"],
         has_resume=row["resume_uploaded_at"] is not None,
         resume_uploaded_at=row["resume_uploaded_at"],
         created_at=row["created_at"],

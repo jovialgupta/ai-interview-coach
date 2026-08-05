@@ -9,6 +9,7 @@ from pydantic import BaseModel, EmailStr, Field
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
+    name: str = Field(min_length=1, max_length=100)
 
 
 class LoginRequest(BaseModel):
@@ -23,6 +24,7 @@ class TokenResponse(BaseModel):
 class MeResponse(BaseModel):
     id: str
     email: str
+    name: str | None
     has_resume: bool
     resume_uploaded_at: datetime | None
     created_at: datetime
@@ -36,42 +38,6 @@ class ResumePasteRequest(BaseModel):
 
 class ResumeResponse(BaseModel):
     resume_parsed: dict[str, Any]
-
-
-# --- sessions ---
-
-class CreateSessionRequest(BaseModel):
-    role: str
-    interview_type: Literal["technical", "behavioural", "mixed"] = "mixed"
-    question_count: Literal[3, 5, 10] = 5
-    difficulty: Literal["easy", "medium", "hard"] = "medium"
-
-
-class QuestionOut(BaseModel):
-    id: str
-    text: str
-    type: str
-    targets: str | None
-    order_index: int
-
-
-class SessionOut(BaseModel):
-    id: str
-    role: str
-    difficulty: str
-    interview_type: str
-    question_count: int
-    created_at: datetime
-    questions: list[QuestionOut] = []
-
-
-class SessionListItem(BaseModel):
-    id: str
-    role: str
-    difficulty: str
-    interview_type: str
-    question_count: int
-    created_at: datetime
 
 
 # --- attempts ---
@@ -95,6 +61,43 @@ class AttemptScoreResponse(BaseModel):
     evidence: dict[str, Any]
     feedback: str
     model: str
+
+
+# --- sessions ---
+
+class CreateSessionRequest(BaseModel):
+    role: str
+    interview_type: Literal["technical", "behavioural", "mixed"] = "mixed"
+    question_count: Literal[3, 5, 10] = 5
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+
+
+class QuestionOut(BaseModel):
+    id: str
+    text: str
+    type: str
+    targets: str | None
+    order_index: int
+    attempt: AttemptScoreResponse | None = None
+
+
+class SessionOut(BaseModel):
+    id: str
+    role: str
+    difficulty: str
+    interview_type: str
+    question_count: int
+    created_at: datetime
+    questions: list[QuestionOut] = []
+
+
+class SessionListItem(BaseModel):
+    id: str
+    role: str
+    difficulty: str
+    interview_type: str
+    question_count: int
+    created_at: datetime
 
 
 # --- history ---

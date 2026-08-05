@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  DIMENSION_LABELS,
-  apiErrorMessage,
-  computeDimensionInsight,
-  createSession,
-  groupBySession,
-  listSessions,
-  getHistory,
-} from '../api'
-import type { Difficulty, HistoryItem, InterviewType, QuestionCount, SessionListItem } from '../api'
+import { Link, useNavigate } from 'react-router-dom'
+import { DIMENSION_LABELS, apiErrorMessage, computeDimensionInsight, createSession, getHistory } from '../api'
+import type { Difficulty, HistoryItem, InterviewType, QuestionCount } from '../api'
 import MarkScore from '../components/MarkScore'
 import { Empty, ErrorBox, Loading } from '../components/StateViews'
+import { NAV_ITEMS } from '../navItems'
+
+const QUICK_LINKS = NAV_ITEMS.filter((item) => item.to !== '/dashboard')
 
 const ROLE_OPTIONS = [
   'Backend Engineer',
@@ -27,7 +22,6 @@ const ROLE_OPTIONS = [
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const [sessions, setSessions] = useState<SessionListItem[] | null>(null)
   const [history, setHistory] = useState<HistoryItem[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -40,11 +34,8 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    Promise.all([listSessions(), getHistory()])
-      .then(([s, h]) => {
-        setSessions(s)
-        setHistory(h)
-      })
+    getHistory()
+      .then(setHistory)
       .catch((err) => setLoadError(apiErrorMessage(err, 'Could not load your dashboard.')))
   }, [])
 
@@ -72,16 +63,15 @@ export default function DashboardPage() {
   }
 
   if (loadError) return <ErrorBox message={loadError} />
-  if (!sessions || !history) return <Loading label="Loading dashboard…" />
+  if (!history) return <Loading label="Loading dashboard…" />
 
   const insight = computeDimensionInsight(history)
-  const sessionAverages = groupBySession(history)
 
   return (
     <div className="page">
       {insight ? (
         <section className="insight-block">
-          <p className="insight-label">Weakest so far: {DIMENSION_LABELS[insight.weakest]}</p>
+          <p className="insight-label">Focus area: {DIMENSION_LABELS[insight.weakest]}</p>
           <p className="insight-sentence">{insight.sentence}</p>
           <div className="insight-marks">
             {(Object.keys(DIMENSION_LABELS) as (keyof typeof DIMENSION_LABELS)[]).map((key) => (
@@ -157,57 +147,14 @@ export default function DashboardPage() {
         {formError && <ErrorBox message={formError} />}
       </section>
 
-      <section className="panel">
-        <h2>Past sessions</h2>
-        {sessions.length === 0 ? (
-          <Empty>
-            <p>You haven't run a session yet.</p>
-          </Empty>
-        ) : (
-          <div className="table-wrap">
-            <table className="record-table">
-              <thead>
-                <tr>
-                  <th>Role</th>
-                  <th>Type</th>
-                  <th>Difficulty</th>
-                  <th>Qs</th>
-                  <th>Date</th>
-                  <th>Structure</th>
-                  <th>Depth</th>
-                  <th>Specificity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => {
-                  const avg = sessionAverages[s.id]
-                  return (
-                    <tr key={s.id} onClick={() => navigate(`/session/${s.id}`)} className="record-row">
-                      <td data-label="Role">{s.role}</td>
-                      <td data-label="Type">{s.interview_type}</td>
-                      <td data-label="Difficulty">{s.difficulty}</td>
-                      <td data-label="Qs" className="num">
-                        {s.question_count}
-                      </td>
-                      <td data-label="Date" className="num">
-                        {new Date(s.created_at).toLocaleDateString()}
-                      </td>
-                      <td data-label="Structure" className="num">
-                        {avg ? avg.structure.toFixed(1) : '—'}
-                      </td>
-                      <td data-label="Depth" className="num">
-                        {avg ? avg.technical_depth.toFixed(1) : '—'}
-                      </td>
-                      <td data-label="Specificity" className="num">
-                        {avg ? avg.specificity.toFixed(1) : '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <section className="quick-links">
+        {QUICK_LINKS.map((link) => (
+          <Link to={link.to} className="quick-link-card" key={link.to}>
+            <link.Icon className="quick-link-icon" />
+            <span className="quick-link-title">{link.label}</span>
+            <span className="quick-link-body">{link.description}</span>
+          </Link>
+        ))}
       </section>
     </div>
   )

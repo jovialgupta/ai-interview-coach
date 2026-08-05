@@ -19,7 +19,7 @@ export default function OnboardingPage() {
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [activeAction, setActiveAction] = useState<'upload' | 'paste' | null>(null)
   const [result, setResult] = useState<ResumeResponse | null>(null)
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -28,26 +28,26 @@ export default function OnboardingPage() {
 
   async function handlePasteSubmit(e: FormEvent) {
     e.preventDefault()
-    await submit(() => pasteResume(text))
+    await submit('paste', () => pasteResume(text))
   }
 
   async function handleUploadSubmit(e: FormEvent) {
     e.preventDefault()
     if (!file) return
-    await submit(() => uploadResume(file))
+    await submit('upload', () => uploadResume(file))
   }
 
-  async function submit(action: () => Promise<ResumeResponse>) {
+  async function submit(action: 'upload' | 'paste', run: () => Promise<ResumeResponse>) {
     setError(null)
-    setSubmitting(true)
+    setActiveAction(action)
     try {
-      const response = await action()
+      const response = await run()
       setResult(response)
       await refreshUser()
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not process your resume. Please try again.'))
     } finally {
-      setSubmitting(false)
+      setActiveAction(null)
     }
   }
 
@@ -69,8 +69,8 @@ export default function OnboardingPage() {
             PDF file (max 5 MB)
             <input type="file" accept="application/pdf" onChange={handleFileChange} />
           </label>
-          <button type="submit" className="btn-primary" disabled={submitting || !file}>
-            {submitting ? 'Processing…' : 'Extract and save'}
+          <button type="submit" className="btn-primary" disabled={activeAction !== null || !file}>
+            {activeAction === 'upload' ? 'Processing…' : 'Extract and save'}
           </button>
         </form>
 
@@ -85,8 +85,8 @@ export default function OnboardingPage() {
               placeholder="Paste your resume text, or describe your skills, projects, and experience..."
             />
           </label>
-          <button type="submit" className="btn-primary" disabled={submitting || !text.trim()}>
-            {submitting ? 'Processing…' : 'Extract and save'}
+          <button type="submit" className="btn-primary" disabled={activeAction !== null || !text.trim()}>
+            {activeAction === 'paste' ? 'Processing…' : 'Extract and save'}
           </button>
         </form>
       </div>
@@ -95,7 +95,8 @@ export default function OnboardingPage() {
 
       {parsed && (
         <div className="panel">
-          <h3>Extracted from your resume</h3>
+          <h3>Does this look right?</h3>
+          <p className="page-subtitle">This is what we'll use to write your interview questions.</p>
           {parsed.skills && parsed.skills.length > 0 && (
             <>
               <h4>Skills</h4>
@@ -131,8 +132,9 @@ export default function OnboardingPage() {
             </>
           )}
           <button type="button" className="btn-primary" onClick={() => navigate('/dashboard')}>
-            Go to dashboard
+            Looks right — continue
           </button>
+          <p className="page-subtitle">Wrong or missing something? Upload or paste again above.</p>
         </div>
       )}
     </div>

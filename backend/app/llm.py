@@ -19,22 +19,25 @@ def _strip_code_fences(text: str) -> str:
 
 
 async def call_llm_json(prompt: str, temperature: float, max_tokens: int = 2000) -> dict:
-    """Calls the LLM expecting a JSON-only response. Retries the call once on
-    JSONDecodeError, then raises a 502 with a user-readable message."""
+    """Calls the LLM expecting a JSON-only response. Retries the call once on any
+    failure — a bad/non-JSON response, or the API call itself raising (network
+    error, timeout, rate limit, auth) — then raises a 502 with a user-readable
+    message instead of letting the raw exception surface as a 500."""
     last_error: Exception | None = None
     for attempt in range(2):
-        response = await _client.aio.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-            ),
-        )
-        cleaned = _strip_code_fences(response.text)
         try:
+            response = await _client.aio.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                    http_options=types.HttpOptions(timeout=15000),
+                ),
+            )
+            cleaned = _strip_code_fences(response.text)
             return json.loads(cleaned)
-        except json.JSONDecodeError as exc:
+        except Exception as exc:  # noqa: BLE001 - any failure here is retried once, then surfaced as 502
             last_error = exc
             continue
 

@@ -5,7 +5,7 @@ import type { HistoryItem } from '../api'
 import EvidenceQuote from '../components/EvidenceQuote'
 import { Empty, ErrorBox, Loading } from '../components/StateViews'
 
-export default function HistoryPage() {
+export default function LearningJourneyPage() {
   const [history, setHistory] = useState<HistoryItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -13,18 +13,18 @@ export default function HistoryPage() {
   useEffect(() => {
     getHistory()
       .then(setHistory)
-      .catch((err) => setError(apiErrorMessage(err, 'Could not load your history.')))
+      .catch((err) => setError(apiErrorMessage(err, 'Could not load your learning journey.')))
   }, [])
 
   if (error) return <ErrorBox message={error} />
-  if (!history) return <Loading label="Loading history…" />
+  if (!history) return <Loading label="Loading your learning journey…" />
 
   if (history.length === 0) {
     return (
       <div className="page">
-        <h2>History</h2>
+        <h2>Learning journey</h2>
         <Empty>
-          <p>Run your first session to see your scores here.</p>
+          <p>Run your first session to start tracking your progress here.</p>
         </Empty>
       </div>
     )
@@ -39,7 +39,8 @@ export default function HistoryPage() {
 
   return (
     <div className="page">
-      <h2>History</h2>
+      <h2>Learning journey</h2>
+      <p className="page-subtitle">How your scores have moved across every answer you've submitted.</p>
 
       <div className="panel">
         <ResponsiveContainer width="100%" height={260}>

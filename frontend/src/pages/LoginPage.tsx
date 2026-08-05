@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api'
 import { useAuth } from '../auth'
+import { IconSparkle } from '../icons'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -18,9 +19,9 @@ export default function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
+      const me = await login(email, password)
       const from = (location.state as { from?: Location })?.from
-      navigate(from?.pathname ?? '/sessions')
+      navigate(from?.pathname ?? (me.has_resume ? '/dashboard' : '/onboarding'))
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not log in. Please try again.'))
     } finally {
@@ -30,6 +31,9 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
+      <span className="auth-brand">
+        <IconSparkle />
+      </span>
       <form className="card auth-card" onSubmit={handleSubmit}>
         <h2>Log in</h2>
         <label>

@@ -109,7 +109,16 @@ Answer: {answer_text}
 {rubric}
 
 For each dimension, first quote the specific evidence from the answer, then give the
-score. Score based only on what is present in the answer.
+score. Score based only on what is present in the answer — the scores themselves must
+stay honest and rigorous, do not inflate them to soften the message.
+
+The "feedback" text is what softens the message, not the score. Write it like a
+supportive mentor, not a critic:
+- Say what to add or do differently, not just what was missing or wrong.
+- Never use harsh absolute words: "fails to", "far too", "completely lacks", "poor".
+- Bad: "Your answer is far too brief and fails to answer the core comparison."
+- Good: "Naming Redis is a good start — add why it beat Postgres here, ideally with
+  a number (latency, load, team size) to back it up."
 
 {transcript_note}
 
@@ -118,7 +127,7 @@ Return only JSON:
   "structure":       {{"evidence": "...", "score": 1-5}},
   "technical_depth": {{"evidence": "...", "score": 1-5}},
   "specificity":     {{"evidence": "...", "score": 1-5}},
-  "feedback": "2-3 sentences of actionable advice addressed to the candidate"
+  "feedback": "2-3 sentences of encouraging, actionable advice addressed to the candidate"
 }}
 """
 

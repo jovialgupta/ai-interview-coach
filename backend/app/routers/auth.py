@@ -14,9 +14,10 @@ async def signup(body: SignupRequest):
     password_hash = hash_password(body.password)
     try:
         row = await pool.fetchrow(
-            "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id",
+            "INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id",
             body.email,
             password_hash,
+            body.name,
         )
     except asyncpg.UniqueViolationError:
         raise HTTPException(
