@@ -8,7 +8,7 @@ import { IconSparkle } from '../icons'
 export default function SignupPage() {
   const { signup } = useAuth()
   const navigate = useNavigate()
-  const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -19,7 +19,7 @@ export default function SignupPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await signup(email, password, name)
+      await signup(email, password, username)
       navigate('/onboarding')
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not create an account. Please try again.'))
@@ -36,6 +36,16 @@ export default function SignupPage() {
       <form className="card auth-card" onSubmit={handleSubmit}>
         <h2>Create an account</h2>
         <label>
+          Username
+          <input
+            type="text"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+          />
+        </label>
+        <label>
           Email
           <input
             type="email"
@@ -43,16 +53,6 @@ export default function SignupPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-          />
-        </label>
-        <label>
-          name
-          <input
-            type="name"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="name"
           />
         </label>
         <label>
@@ -73,6 +73,9 @@ export default function SignupPage() {
         <p className="auth-switch">
           Already have an account? <Link to="/login">Log in</Link>
         </p>
+        <span className="auth-eyebrow">
+          <IconSparkle /> Join in seconds
+        </span>
       </form>
     </div>
   )

@@ -131,6 +131,7 @@ export interface HistoryItem {
   session_id: string
   question_text: string
   question_type: string
+  question_targets: string | null
   answer_text: string
   input_mode: string
   structure: number
@@ -161,6 +162,11 @@ export async function getMe(): Promise<MeResponse> {
 
 export async function pasteResume(contextText: string): Promise<ResumeResponse> {
   const res = await client.post<ResumeResponse>('/api/resume/paste', { context_text: contextText })
+  return res.data
+}
+
+export async function getResume(): Promise<ResumeResponse> {
+  const res = await client.get<ResumeResponse>('/api/resume')
   return res.data
 }
 
@@ -240,14 +246,23 @@ const WEAKEST_DIMENSION_COPY: Record<DimensionKey, string> = {
   specificity: 'Your answers stay generic — add real numbers, names, and constraints.',
 }
 
+const STRONGEST_DIMENSION_COPY: Record<DimensionKey, string> = {
+  structure: "You're consistently clear about context, action, and outcome — keep leading with that shape.",
+  technical_depth: "You're explaining the reasoning behind your choices, not just naming tools — keep that up.",
+  specificity: "You're backing answers with real numbers and named specifics — that's what evidence-backed scoring rewards.",
+}
+
 export interface DimensionInsight {
   weakest: DimensionKey
+  strongest: DimensionKey
   sentence: string
+  strongestSentence: string
   averages: Record<DimensionKey, number>
 }
 
 /** Averages every scored attempt across all sessions and names the single weakest
- * dimension, per the brief: an insight sentence, never a collapsed overall number. */
+ * (and strongest) dimension, per the brief: an insight sentence, never a collapsed
+ * overall number. */
 export function computeDimensionInsight(history: HistoryItem[]): DimensionInsight | null {
   if (history.length === 0) return null
 
@@ -266,8 +281,17 @@ export function computeDimensionInsight(history: HistoryItem[]): DimensionInsigh
   const weakest = (Object.keys(averages) as DimensionKey[]).reduce((a, b) =>
     averages[b] < averages[a] ? b : a,
   )
+  const strongest = (Object.keys(averages) as DimensionKey[]).reduce((a, b) =>
+    averages[b] > averages[a] ? b : a,
+  )
 
-  return { weakest, sentence: WEAKEST_DIMENSION_COPY[weakest], averages }
+  return {
+    weakest,
+    strongest,
+    sentence: WEAKEST_DIMENSION_COPY[weakest],
+    strongestSentence: STRONGEST_DIMENSION_COPY[strongest],
+    averages,
+  }
 }
 
 export interface SessionAverages {
@@ -301,4 +325,22 @@ export function groupBySession(history: HistoryItem[]): Record<string, SessionAv
     }
   }
   return result
+}
+
+/** Counts consecutive practice days ending today, allowing yesterday to keep the
+ * streak "alive" if today's answer hasn't happened yet. Local calendar days. */
+export function computeStreak(history: HistoryItem[]): number {
+  const days = new Set(history.map((item) => new Date(item.scored_at).toDateString()))
+
+  const cursor = new Date()
+  if (!days.has(cursor.toDateString())) {
+    cursor.setDate(cursor.getDate() - 1)
+  }
+
+  let streak = 0
+  while (days.has(cursor.toDateString())) {
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
 }

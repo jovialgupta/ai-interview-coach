@@ -16,6 +16,16 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MIN_EXTRACTED_CHARS = 100
 
 
+@router.get("", response_model=ResumeResponse)
+async def get_resume(user_id: str = Depends(get_current_user)):
+    pool = get_pool()
+    row = await pool.fetchrow("SELECT resume_parsed FROM users WHERE id = $1", user_id)
+    if row is None or row["resume_parsed"] is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No resume on file.")
+    parsed = row["resume_parsed"]
+    return ResumeResponse(resume_parsed=json.loads(parsed) if isinstance(parsed, str) else parsed)
+
+
 async def _extract_and_store(user_id: str, resume_text: str) -> ResumeResponse:
     prompt = build_resume_extraction_prompt(resume_text)
     parsed = await call_llm_json(prompt, temperature=0)

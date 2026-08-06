@@ -8,8 +8,7 @@ export interface NavItem {
   Icon: ComponentType<{ className?: string }>
 }
 
-/** Single source of truth for the signed-in nav destinations — the sidebar (Layout)
- * shows all of these, the dashboard's quick-links show all but the current page. */
+/** Single source of truth for the signed-in nav destinations, shown in the sidebar (Layout). */
 export const NAV_ITEMS: NavItem[] = [
   {
     to: '/dashboard',

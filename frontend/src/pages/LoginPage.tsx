@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api'
 import { useAuth } from '../auth'
 import { IconSparkle } from '../icons'
@@ -8,7 +8,6 @@ import { IconSparkle } from '../icons'
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -19,9 +18,8 @@ export default function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      const me = await login(email, password)
-      const from = (location.state as { from?: Location })?.from
-      navigate(from?.pathname ?? (me.has_resume ? '/dashboard' : '/onboarding'))
+      await login(email, password)
+      navigate('/dashboard')
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not log in. Please try again.'))
     } finally {

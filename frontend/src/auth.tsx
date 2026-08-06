@@ -68,6 +68,11 @@ export function useAuth(): AuthContextValue {
   return ctx
 }
 
+export function getInitial(user: MeResponse | null): string {
+  const source = user?.name?.trim() || user?.email || ''
+  return source.slice(0, 1).toUpperCase()
+}
+
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   const location = useLocation()

@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { AuthProvider, ProtectedRoute } from './auth'
+import AboutPage from './pages/AboutPage'
 import DashboardPage from './pages/DashboardPage'
+import FeaturesPage from './pages/FeaturesPage'
 import InterviewHistoryPage from './pages/InterviewHistoryPage'
 import LandingPage from './pages/LandingPage'
 import LearningJourneyPage from './pages/LearningJourneyPage'
@@ -10,6 +12,7 @@ import LoginPage from './pages/LoginPage'
 import OnboardingPage from './pages/OnboardingPage'
 import SessionPage from './pages/SessionPage'
 import SignupPage from './pages/SignupPage'
+import StartInterviewPage from './pages/StartInterviewPage'
 
 function App() {
   return (
@@ -17,6 +20,8 @@ function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route
@@ -32,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/start-interview"
+            element={
+              <ProtectedRoute>
+                <StartInterviewPage />
               </ProtectedRoute>
             }
           />

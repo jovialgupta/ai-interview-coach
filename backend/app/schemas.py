@@ -107,6 +107,7 @@ class HistoryItem(BaseModel):
     session_id: str
     question_text: str
     question_type: str
+    question_targets: str | None
     answer_text: str
     input_mode: str
     structure: int

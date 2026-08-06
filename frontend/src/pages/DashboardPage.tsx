@@ -1,37 +1,27 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { DIMENSION_LABELS, apiErrorMessage, computeDimensionInsight, createSession, getHistory } from '../api'
-import type { Difficulty, HistoryItem, InterviewType, QuestionCount } from '../api'
+import { Link } from 'react-router-dom'
+import { DIMENSION_LABELS, apiErrorMessage, computeDimensionInsight, computeStreak, getHistory } from '../api'
+import type { HistoryItem } from '../api'
+import { getInitial, useAuth } from '../auth'
 import MarkScore from '../components/MarkScore'
-import { Empty, ErrorBox, Loading } from '../components/StateViews'
-import { NAV_ITEMS } from '../navItems'
+import SkillsPanel from '../components/SkillsPanel'
+import StartInterviewForm from '../components/StartInterviewForm'
+import { ErrorBox, Loading } from '../components/StateViews'
+import { IconHome, IconPlay, IconSliders } from '../icons'
 
-const QUICK_LINKS = NAV_ITEMS.filter((item) => item.to !== '/dashboard')
+type DashboardTab = 'overview' | 'prep' | 'skills'
 
-const ROLE_OPTIONS = [
-  'Backend Engineer',
-  'Frontend Engineer',
-  'Full Stack Engineer',
-  'Data Analyst',
-  'Data Scientist',
-  'DevOps Engineer',
-  'QA Engineer',
-  'Mobile App Developer',
+const TABS: { key: DashboardTab; label: string; Icon: typeof IconHome }[] = [
+  { key: 'overview', label: 'Overview', Icon: IconHome },
+  { key: 'prep', label: 'Interview Prep', Icon: IconPlay },
+  { key: 'skills', label: 'Skills', Icon: IconSliders },
 ]
 
 export default function DashboardPage() {
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [history, setHistory] = useState<HistoryItem[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-
-  const [role, setRole] = useState(ROLE_OPTIONS[0])
-  const [customRole, setCustomRole] = useState('')
-  const [interviewType, setInterviewType] = useState<InterviewType>('mixed')
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium')
-  const [questionCount, setQuestionCount] = useState<QuestionCount>(5)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [tab, setTab] = useState<DashboardTab>('overview')
 
   useEffect(() => {
     getHistory()
@@ -39,123 +29,114 @@ export default function DashboardPage() {
       .catch((err) => setLoadError(apiErrorMessage(err, 'Could not load your dashboard.')))
   }, [])
 
-  async function handleCreateSession(e: FormEvent) {
-    e.preventDefault()
-    const resolvedRole = role === 'Other' ? customRole.trim() : role
-    if (!resolvedRole) {
-      setFormError('Enter a role.')
-      return
-    }
-    setFormError(null)
-    setSubmitting(true)
-    try {
-      const session = await createSession({
-        role: resolvedRole,
-        interview_type: interviewType,
-        difficulty,
-        question_count: questionCount,
-      })
-      navigate(`/session/${session.id}`)
-    } catch (err) {
-      setFormError(apiErrorMessage(err, 'Could not generate questions. Please try again.'))
-      setSubmitting(false)
-    }
-  }
-
   if (loadError) return <ErrorBox message={loadError} />
   if (!history) return <Loading label="Loading dashboard…" />
 
+  const sessionCount = new Set(history.map((h) => h.session_id)).size
+  const overallAverage = history.length
+    ? history.reduce((sum, h) => sum + h.structure + h.technical_depth + h.specificity, 0) /
+      (history.length * 3)
+    : null
+  const streak = computeStreak(history)
   const insight = computeDimensionInsight(history)
 
   return (
     <div className="page">
-      {insight ? (
-        <section className="insight-block">
-          <p className="insight-label">Focus area: {DIMENSION_LABELS[insight.weakest]}</p>
-          <p className="insight-sentence">{insight.sentence}</p>
-          <div className="insight-marks">
-            {(Object.keys(DIMENSION_LABELS) as (keyof typeof DIMENSION_LABELS)[]).map((key) => (
-              <div className="insight-mark" key={key}>
-                <span className="insight-mark-label">{DIMENSION_LABELS[key]}</span>
-                <MarkScore value={insight.averages[key]} label={DIMENSION_LABELS[key]} />
-              </div>
-            ))}
+      <section className="profile-header">
+        <span className="profile-avatar">{getInitial(user)}</span>
+        <div className="profile-info">
+          <h2>{user?.name || user?.email}</h2>
+          {user?.name && <p className="profile-email">{user?.email}</p>}
+        </div>
+        <div className="profile-stats">
+          <div className="profile-stat">
+            <span className="profile-stat-value">{sessionCount}</span>
+            <span className="profile-stat-label">Sessions</span>
           </div>
+          <div className="profile-stat">
+            <span className="profile-stat-value">{history.length}</span>
+            <span className="profile-stat-label">Questions attempted</span>
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-value">
+              {overallAverage !== null ? `${overallAverage.toFixed(1)}/5` : '—'}
+            </span>
+            <span className="profile-stat-label">Average score</span>
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-value">
+              {streak} day{streak === 1 ? '' : 's'}
+            </span>
+            <span className="profile-stat-label">Streak</span>
+          </div>
+          {user?.has_resume ? (
+            <Link to="/onboarding" className="profile-stat profile-stat-link">
+              <span className="profile-stat-value">Uploaded</span>
+              <span className="profile-stat-label">Resume</span>
+            </Link>
+          ) : (
+            <div className="profile-stat">
+              <span className="profile-stat-value">—</span>
+              <span className="profile-stat-label">Resume</span>
+            </div>
+          )}
+        </div>
+        {history.length === 0 && (
+          <p className="profile-hint">No sessions yet — start one from the sidebar to see where you stand.</p>
+        )}
+      </section>
+
+      <nav className="dashboard-tabs">
+        {TABS.map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            className={key === tab ? 'dashboard-tab active' : 'dashboard-tab'}
+            onClick={() => setTab(key)}
+          >
+            <Icon />
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'overview' &&
+        (insight ? (
+          <section className="insight-cards">
+            <div className="insight-card insight-card-positive">
+              <span className="insight-card-eyebrow">What's going well</span>
+              <div className="insight-card-head">
+                <h3>{DIMENSION_LABELS[insight.strongest]}</h3>
+                <MarkScore value={insight.averages[insight.strongest]} label={DIMENSION_LABELS[insight.strongest]} />
+              </div>
+              <p>{insight.strongestSentence}</p>
+            </div>
+            <div className="insight-card insight-card-focus">
+              <span className="insight-card-eyebrow">What to work on</span>
+              <div className="insight-card-head">
+                <h3>{DIMENSION_LABELS[insight.weakest]}</h3>
+                <MarkScore value={insight.averages[insight.weakest]} label={DIMENSION_LABELS[insight.weakest]} />
+              </div>
+              <p>{insight.sentence}</p>
+            </div>
+          </section>
+        ) : (
+          <p className="page-subtitle">Complete a session to see your strengths and focus areas here.</p>
+        ))}
+
+      {tab === 'prep' && (
+        <section className="panel">
+          <h2>Start a session</h2>
+          <StartInterviewForm />
         </section>
-      ) : (
-        <Empty>
-          <p>No sessions yet — start one below to see where you stand.</p>
-        </Empty>
       )}
 
-      <section className="panel">
-        <h2>Start a session</h2>
-        <form className="inline-form" onSubmit={handleCreateSession}>
-          <label>
-            Role
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-              <option value="Other">Other</option>
-            </select>
-          </label>
-          {role === 'Other' && (
-            <label>
-              Custom role
-              <input
-                type="text"
-                value={customRole}
-                onChange={(e) => setCustomRole(e.target.value)}
-                placeholder="e.g. Site Reliability Engineer"
-              />
-            </label>
-          )}
-          <label>
-            Interview type
-            <select value={interviewType} onChange={(e) => setInterviewType(e.target.value as InterviewType)}>
-              <option value="mixed">Mixed</option>
-              <option value="technical">Technical</option>
-              <option value="behavioural">Behavioural</option>
-            </select>
-          </label>
-          <label>
-            Questions
-            <select
-              value={questionCount}
-              onChange={(e) => setQuestionCount(Number(e.target.value) as QuestionCount)}
-            >
-              <option value={3}>3</option>
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-            </select>
-          </label>
-          <label>
-            Difficulty
-            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </label>
-          <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Generating…' : 'Start session'}
-          </button>
-        </form>
-        {formError && <ErrorBox message={formError} />}
-      </section>
-
-      <section className="quick-links">
-        {QUICK_LINKS.map((link) => (
-          <Link to={link.to} className="quick-link-card" key={link.to}>
-            <link.Icon className="quick-link-icon" />
-            <span className="quick-link-title">{link.label}</span>
-            <span className="quick-link-body">{link.description}</span>
-          </Link>
-        ))}
-      </section>
+      {tab === 'skills' && (
+        <section className="panel">
+          <h2>Skills</h2>
+          <SkillsPanel history={history} />
+        </section>
+      )}
     </div>
   )
 }
