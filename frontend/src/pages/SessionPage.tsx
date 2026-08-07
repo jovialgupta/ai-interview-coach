@@ -8,9 +8,9 @@ import {
   getNextQuestion,
   getSession,
   parseAttemptError,
-  rescoreAttempt,
 } from '../api'
 import type { AttemptScoreResponse, InputMode, QuestionOut, SessionOut } from '../api'
+import { useActiveSession } from '../activeSession'
 import { computeDeliveryStats } from '../delivery'
 import EvidenceQuote from '../components/EvidenceQuote'
 import MarkScore from '../components/MarkScore'
@@ -45,9 +45,20 @@ export default function SessionPage() {
   const [fetchingNext, setFetchingNext] = useState(false)
   const [nextError, setNextError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false)
   const speechRef = useRef<SpeechController | null>(null)
   const recordingStartedAtRef = useRef<number | null>(null)
   const speechSupported = isSpeechRecognitionSupported()
+  const { setActiveSessionId } = useActiveSession()
+
+  useEffect(() => {
+    if (!sessionId || sessionDone) {
+      setActiveSessionId(null)
+      return
+    }
+    setActiveSessionId(sessionId)
+    return () => setActiveSessionId(null)
+  }, [sessionId, sessionDone, setActiveSessionId])
 
   useEffect(() => {
     if (!sessionId) return
@@ -140,26 +151,40 @@ export default function SessionPage() {
     const current = answers[questionId]
     if (!current || !current.answer.trim()) return
     updateAnswer(questionId, { status: 'submitting', errorMessage: undefined })
+    setFetchingNext(true)
+    setNextError(null)
+
+    // Fired alongside scoring, not after it — the next question doesn't depend on this
+    // answer's score, so there's no reason to make the user wait through two sequential
+    // spinners when both requests can run at once.
+    const nextPromise = sessionId ? getNextQuestion(sessionId) : Promise.resolve(null)
+
+    let score: AttemptScoreResponse
     try {
-      const score = await createAttempt(questionId, current.answer, current.inputMode)
-      updateAnswer(questionId, { status: 'scored', score, attemptId: score.attempt_id })
+      score = await createAttempt(questionId, current.answer, current.inputMode)
     } catch (err) {
       const { message, attemptId } = parseAttemptError(err)
       updateAnswer(questionId, { status: 'error', errorMessage: message, attemptId })
+      setFetchingNext(false)
+      nextPromise.catch(() => {})
+      return
+    }
+    updateAnswer(questionId, { status: 'scored', score, attemptId: score.attempt_id })
+
+    try {
+      const question = await nextPromise
+      if (question) applyNextQuestion(question)
+    } catch (err) {
+      setNextError(apiErrorMessage(err, 'Could not generate the next question. Please try again.'))
+    } finally {
+      setFetchingNext(false)
     }
   }
 
-  async function handleRetryScoring(questionId: string) {
-    const current = answers[questionId]
-    if (!current?.attemptId) return
-    updateAnswer(questionId, { status: 'submitting', errorMessage: undefined })
-    try {
-      const score = await rescoreAttempt(current.attemptId)
-      updateAnswer(questionId, { status: 'scored', score })
-    } catch (err) {
-      const { message, attemptId } = parseAttemptError(err)
-      updateAnswer(questionId, { status: 'error', errorMessage: message, attemptId: attemptId ?? current.attemptId })
-    }
+  function applyNextQuestion(question: QuestionOut) {
+    setQuestions((prev) => [...prev, question])
+    setAnswers((prev) => ({ ...prev, [question.id]: initialState() }))
+    setCurrentIndex((prev) => prev + 1)
   }
 
   async function fetchNext() {
@@ -168,9 +193,7 @@ export default function SessionPage() {
     setNextError(null)
     try {
       const question = await getNextQuestion(sessionId)
-      setQuestions((prev) => [...prev, question])
-      setAnswers((prev) => ({ ...prev, [question.id]: initialState() }))
-      setCurrentIndex((prev) => prev + 1)
+      applyNextQuestion(question)
     } catch (err) {
       setNextError(apiErrorMessage(err, 'Could not generate the next question. Please try again.'))
     } finally {
@@ -180,6 +203,7 @@ export default function SessionPage() {
 
   async function finishCurrentSession() {
     if (!sessionId) return
+    setShowFinishConfirm(false)
     setFetchingNext(true)
     setNextError(null)
     try {
@@ -267,7 +291,7 @@ export default function SessionPage() {
             <Link to="/learning-journey" className="btn-primary">
               View progress
             </Link>
-            <Link to="/dashboard" className="btn-link">
+            <Link to="/dashboard" className="btn-secondary">
               Back to dashboard
             </Link>
           </div>
@@ -279,10 +303,7 @@ export default function SessionPage() {
   const question = questions[currentIndex]
   const state = answers[question.id] ?? initialState()
   const disabled = state.status === 'submitting' || state.status === 'scored'
-  const delivery =
-    state.status === 'scored' && state.inputMode === 'spoken'
-      ? computeDeliveryStats(state.answer, state.speakingSeconds)
-      : null
+  const answeredCount = questions.filter((q) => answers[q.id]?.status === 'scored').length
 
   return (
     <div className="page">
@@ -292,43 +313,57 @@ export default function SessionPage() {
           {session.interview_type} · {session.difficulty}
         </span>
         <span className="session-counter">Question {currentIndex + 1}</span>
+        <button
+          type="button"
+          className="btn-link"
+          disabled={fetchingNext || state.status === 'submitting'}
+          onClick={() => setShowFinishConfirm(true)}
+        >
+          Finish session
+        </button>
       </div>
+
+      {showFinishConfirm && (
+        <div className="confirm-overlay">
+          <div className="confirm-modal panel">
+            <h3>Finish this session?</h3>
+            <p className="page-subtitle">
+              You've answered {answeredCount} question{answeredCount === 1 ? '' : 's'} so far. Finishing now locks
+              in your progress — you won't be able to answer more questions in this session.
+            </p>
+            <div className="confirm-modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowFinishConfirm(false)}
+                disabled={fetchingNext}
+              >
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={finishCurrentSession} disabled={fetchingNext}>
+                {fetchingNext ? 'Finishing…' : 'Finish session'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="panel question-panel">
         <h3>{question.text}</h3>
-        {question.targets && <p className="question-targets">Targets: {question.targets}</p>}
 
         {state.status === 'scored' && state.score ? (
-          <>
-            <div className="score-reveal">
-              {DIMENSION_KEYS.map((key) => (
-                <div className="score-dimension" key={key}>
-                  <div className="score-dimension-head">
-                    <span>{DIMENSION_LABELS[key]}</span>
-                    <MarkScore value={state.score![key]} label={DIMENSION_LABELS[key]} />
-                  </div>
-                  <EvidenceQuote text={state.score!.evidence[key]} />
-                </div>
-              ))}
-              <p className="feedback">{state.score.feedback}</p>
-              {delivery && (
-                <p className="delivery-note">
-                  {delivery.wpm} wpm · ~{delivery.fillerCount} filler word{delivery.fillerCount === 1 ? '' : 's'}
-                </p>
-              )}
-            </div>
-
-            {nextError && <ErrorBox message={nextError} />}
-
-            <div className="input-mode-row">
-              <button type="button" className="btn-primary" disabled={fetchingNext} onClick={fetchNext}>
-                {fetchingNext ? 'Generating…' : 'Next question'}
-              </button>
-              <button type="button" className="btn-link" disabled={fetchingNext} onClick={finishCurrentSession}>
-                Finish session
-              </button>
-            </div>
-          </>
+          fetchingNext ? (
+            <Loading label="Generating next question…" />
+          ) : (
+            nextError && (
+              <div>
+                <ErrorBox message={nextError} />
+                <button type="button" className="btn-primary" onClick={fetchNext}>
+                  Try again
+                </button>
+              </div>
+            )
+          )
         ) : (
           <>
             <textarea
@@ -390,17 +425,12 @@ export default function SessionPage() {
               disabled={disabled || !state.answer.trim()}
               onClick={() => handleSubmit(question.id)}
             >
-              {state.status === 'submitting' ? 'Scoring…' : 'Submit answer'}
+              {state.status === 'submitting' ? 'Submitting…' : 'Submit answer'}
             </button>
 
             {state.status === 'error' && (
               <div>
                 <ErrorBox message={state.errorMessage ?? 'Something went wrong.'} />
-                {state.attemptId && (
-                  <button type="button" className="btn-link" onClick={() => handleRetryScoring(question.id)}>
-                    Retry scoring
-                  </button>
-                )}
               </div>
             )}
           </>

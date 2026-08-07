@@ -39,15 +39,30 @@ Previously asked to this candidate (do not repeat or ask minor variations):
 {type_rules}
 
 A question's type is decided by what it evaluates, not by its sentence structure.
-Many technical questions are phrased as a story ("tell me about a time you chose X
-over Y") — that phrasing does NOT make it behavioural.
-- technical: evaluates tool/domain knowledge, a technical tradeoff, or a technical
-  decision — even when phrased as "describe a project where you chose/built/debugged...".
-  Example: "Tell me about a time you picked Redis over Postgres for a queue — why?" is
-  technical, because the answer is judged on the tradeoff, not on how they behaved.
+Many technical questions are phrased as a story ("tell me about a time you chose/
+built/debugged X") — that phrasing does NOT make it behavioural, as long as the
+answer is judged on technical substance, not on how they behaved.
+- technical: evaluates tool/domain knowledge, reasoning, or a technical decision.
 - behavioural: evaluates conduct — collaboration, conflict, ownership, prioritization,
   handling failure or disagreement — where the answer is judged on how they acted and
   what they'd do differently, not on which tool or technique was correct.
+
+Technical questions must rotate across these angles — do not default to only one
+(tradeoff questions in particular are overused; use them for at most one question):
+- Tradeoff: why one tool/approach over another they didn't pick.
+  e.g. "You used Redis for sessions — why not Postgres?"
+- Mechanism: how something they built actually works.
+  e.g. "Walk me through what happens when a request hits your API — where does
+  Redis come in?"
+- Debugging: a specific failure they hit and how they found or fixed it.
+  e.g. "Was there ever a time that cache gave you stale data? What happened?"
+- Scaling/limits: what breaks or needs to change under more load or data.
+  e.g. "If that Redis instance had to hold 10x the sessions, what breaks first?"
+- Retrospective: what they'd do differently now, knowing what they know today.
+  e.g. "Looking back, is Redis still the right call there, or would you do it
+  differently now?"
+
+Across a full set of questions, use at least three different angles above.
 
 {difficulty_rules}
 
@@ -64,7 +79,8 @@ Language, regardless of difficulty:
 
 Rules:
 - At least 60% of questions must reference their actual named projects or skills
-- Probe specific decisions: if they used Redis, ask why not Postgres
+- Probe specific things they built — not only "why not X instead", also how it
+  works, what broke, what would break under more load, or what they'd change now
 - Do not ask anything answerable by reading the resume itself
 - Each question answerable in 3-5 sentences of speech
 - No questions requiring code to be written out
@@ -83,19 +99,21 @@ TYPE_RULES = {
 
 DIFFICULTY_RULES = {
     "easy": (
-        "Easy: ask about ONE tool or decision they already named, with no added "
+        "Easy: ask about ONE tool, decision, or thing they built, with no added "
         "complexity or hypothetical twist. A confident answer just explains what "
         "they did and one reason why. Do not add 'what if scale increased 10x' or "
         "similar follow-on complications."
     ),
     "medium": (
-        "Medium: ask about one decision, but expect them to weigh it against one "
-        "concrete alternative they didn't pick."
+        "Medium: ask about one thing they built, but expect them to go one level "
+        "deeper than naming it — weigh it against an alternative, explain how it "
+        "actually works, or describe a specific problem it caused. Pick whichever "
+        "angle fits the question, not always the alternative-weighing one."
     ),
     "hard": (
-        "Hard: you may add one realistic complication to a decision they made "
-        "(e.g. a scale increase, a new constraint) and ask how they'd adapt — but "
-        "keep the sentence short and plain even though the idea is harder."
+        "Hard: you may add one realistic complication (e.g. a scale increase, a new "
+        "constraint, a failure scenario) and ask how they'd adapt — but keep the "
+        "sentence short and plain even though the idea is harder."
     ),
 }
 
@@ -139,32 +157,44 @@ TRANSCRIPT_NOTE = (
 
 TECHNICAL_RUBRIC = """structure — does the answer have a clear shape?
   1: rambling, no clear arc
+  2: some structure attempted, but ideas run together or the arc breaks down partway
   3: describes what they did, but the outcome is vague or missing
+  4: clear context and actions, outcome is present but not measurable
   5: clear context, specific actions, measurable outcome
 
 technical_depth — does it explain the reasoning behind decisions?
   1: names tools only ("I used React and Node")
+  2: describes what was built, but mostly restates the tools with little reasoning
   3: describes what was built, but not why those choices
+  4: explains the reasoning behind a choice, but doesn't weigh it against an alternative
   5: explains tradeoffs and alternatives considered
 
 specificity — are there concrete details?
   1: entirely generic
+  2: names a tool or step, but no constraint or number
   3: some detail but no numbers or named constraints
+  4: a specific number or a named constraint, but not both
   5: specific numbers, constraints, named problems"""
 
 BEHAVIOURAL_RUBRIC = """structure — is there a clear situation, then action, then result?
   1: rambles, no identifiable situation
+  2: situation is identifiable, but action and result blur together
   3: describes a situation and action, but no result
+  4: situation, action, and result all present, but one is thin
   5: all three present and clearly separated
 
 technical_depth — here this means reflection
   1: recounts events with no reflection
+  2: states how they felt about it, but not what they learned
   3: states an outcome but no learning
+  4: says what they learned, but not what they'd do differently
   5: says what they learned and what they would do differently
 
 specificity — is this a real, specific incident?
   1: generic claim ("I always communicate well"), no incident
+  2: names a project or team, but the incident itself stays vague
   3: a real incident but thin on detail
+  4: named project with real stakes, but missing one concrete detail
   5: named project, real stakes, concrete details"""
 
 RUBRICS = {

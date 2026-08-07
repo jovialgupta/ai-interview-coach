@@ -10,6 +10,7 @@ interface ParsedResume {
   skills?: string[]
   projects?: { name: string; tech: string[]; what_it_does: string; notable_decisions: string | null }[]
   experience?: { org: string; role: string; work: string }[]
+  education?: { degree: string | null; year: string | null }
 }
 
 export default function OnboardingPage() {
@@ -95,8 +96,6 @@ export default function OnboardingPage() {
 
       {parsed && (
         <div className="panel">
-          <h3>Does this look right?</h3>
-          <p className="page-subtitle">This is what we'll use to write your interview questions.</p>
           {parsed.skills && parsed.skills.length > 0 && (
             <>
               <h4>Skills</h4>
@@ -128,6 +127,18 @@ export default function OnboardingPage() {
                     {exp.role} at {exp.org}
                   </li>
                 ))}
+              </ul>
+            </>
+          )}
+          {parsed.education && (parsed.education.degree || parsed.education.year) && (
+            <>
+              <h4>Education</h4>
+              <ul className="plain-list">
+                <li>
+                  {parsed.education.degree}
+                  {parsed.education.degree && parsed.education.year ? ', ' : ''}
+                  {parsed.education.year}
+                </li>
               </ul>
             </>
           )}

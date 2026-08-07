@@ -12,6 +12,7 @@ export { default as IconSliders } from './assets/icons/sliders.svg?react'
 export { default as IconMoon } from './assets/icons/moon.svg?react'
 export { default as IconSun } from './assets/icons/sun.svg?react'
 export { default as IconChevronRight } from './assets/icons/chevron-right.svg?react'
+export { default as IconMenu } from './assets/icons/menu.svg?react'
 /** The brand mark, and the "AI-generated" eyebrow on the landing page — a filled
  * 4-point sparkle rather than an outline, so it reads as a mark, not a line icon. */
 export { default as IconSparkle } from './assets/icons/sparkle.svg?react'

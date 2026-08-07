@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
+import { ActiveSessionProvider } from './activeSession'
 import { AuthProvider, ProtectedRoute } from './auth'
 import AboutPage from './pages/AboutPage'
 import DashboardPage from './pages/DashboardPage'
@@ -17,64 +18,66 @@ import StartInterviewPage from './pages/StartInterviewPage'
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route
-            path="/onboarding"
-            element={
-              <ProtectedRoute>
-                <OnboardingPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/start-interview"
-            element={
-              <ProtectedRoute>
-                <StartInterviewPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/session/:sessionId"
-            element={
-              <ProtectedRoute>
-                <SessionPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/history"
-            element={
-              <ProtectedRoute>
-                <InterviewHistoryPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/learning-journey"
-            element={
-              <ProtectedRoute>
-                <LearningJourneyPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+      <ActiveSessionProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <OnboardingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/start-interview"
+              element={
+                <ProtectedRoute>
+                  <StartInterviewPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/session/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <SessionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <ProtectedRoute>
+                  <InterviewHistoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/learning-journey"
+              element={
+                <ProtectedRoute>
+                  <LearningJourneyPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </ActiveSessionProvider>
     </AuthProvider>
   )
 }

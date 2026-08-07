@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { DIMENSION_LABELS, apiErrorMessage, computeDimensionInsight, computeStreak, getHistory } from '../api'
 import type { HistoryItem } from '../api'
 import { getInitial, useAuth } from '../auth'
@@ -7,7 +6,7 @@ import MarkScore from '../components/MarkScore'
 import SkillsPanel from '../components/SkillsPanel'
 import StartInterviewForm from '../components/StartInterviewForm'
 import { ErrorBox, Loading } from '../components/StateViews'
-import { IconHome, IconPlay, IconSliders } from '../icons'
+import { IconBarChart, IconClock, IconHome, IconLayers, IconPlay, IconSliders, IconTrendingUp } from '../icons'
 
 type DashboardTab = 'overview' | 'prep' | 'skills'
 
@@ -50,36 +49,45 @@ export default function DashboardPage() {
         </div>
         <div className="profile-stats">
           <div className="profile-stat">
-            <span className="profile-stat-value">{sessionCount}</span>
-            <span className="profile-stat-label">Sessions</span>
-          </div>
-          <div className="profile-stat">
-            <span className="profile-stat-value">{history.length}</span>
-            <span className="profile-stat-label">Questions attempted</span>
-          </div>
-          <div className="profile-stat">
-            <span className="profile-stat-value">
-              {overallAverage !== null ? `${overallAverage.toFixed(1)}/5` : '—'}
+            <span className="profile-stat-icon">
+              <IconClock />
             </span>
-            <span className="profile-stat-label">Average score</span>
-          </div>
-          <div className="profile-stat">
-            <span className="profile-stat-value">
-              {streak} day{streak === 1 ? '' : 's'}
-            </span>
-            <span className="profile-stat-label">Streak</span>
-          </div>
-          {user?.has_resume ? (
-            <Link to="/onboarding" className="profile-stat profile-stat-link">
-              <span className="profile-stat-value">Uploaded</span>
-              <span className="profile-stat-label">Resume</span>
-            </Link>
-          ) : (
-            <div className="profile-stat">
-              <span className="profile-stat-value">—</span>
-              <span className="profile-stat-label">Resume</span>
+            <div className="profile-stat-text">
+              <span className="profile-stat-label">Sessions</span>
+              <span className="profile-stat-value">{sessionCount}</span>
             </div>
-          )}
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-icon">
+              <IconLayers />
+            </span>
+            <div className="profile-stat-text">
+              <span className="profile-stat-label">Questions attempted</span>
+              <span className="profile-stat-value">{history.length}</span>
+            </div>
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-icon">
+              <IconBarChart />
+            </span>
+            <div className="profile-stat-text">
+              <span className="profile-stat-label">Average score</span>
+              <span className="profile-stat-value">
+                {overallAverage !== null ? `${overallAverage.toFixed(1)}/5` : '—'}
+              </span>
+            </div>
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-icon">
+              <IconTrendingUp />
+            </span>
+            <div className="profile-stat-text">
+              <span className="profile-stat-label">Streak</span>
+              <span className="profile-stat-value">
+                {streak} day{streak === 1 ? '' : 's'}
+              </span>
+            </div>
+          </div>
         </div>
         {history.length === 0 && (
           <p className="profile-hint">No sessions yet — start one from the sidebar to see where you stand.</p>
@@ -94,7 +102,9 @@ export default function DashboardPage() {
             className={key === tab ? 'dashboard-tab active' : 'dashboard-tab'}
             onClick={() => setTab(key)}
           >
-            <Icon />
+            <span className="dashboard-tab-icon-badge">
+              <Icon />
+            </span>
             {label}
           </button>
         ))}
