@@ -95,8 +95,6 @@ export default function OnboardingPage() {
 
       {parsed && (
         <div className="panel">
-          <h3>Does this look right?</h3>
-          <p className="page-subtitle">This is what we'll use to write your interview questions.</p>
           {parsed.skills && parsed.skills.length > 0 && (
             <>
               <h4>Skills</h4>

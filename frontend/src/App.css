@@ -629,6 +629,7 @@ textarea {
   align-items: center;
   flex-wrap: wrap;
   gap: 20px;
+  margin-top: 12px;
   border: 1px solid var(--rule);
   border-radius: var(--radius-md);
   padding: 20px;
@@ -669,29 +670,62 @@ textarea {
 }
 
 .profile-stats {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  flex: 1;
 }
 
 .profile-stat {
   display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+
+.profile-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--sky-weak);
+  color: var(--sky-deep);
+  flex-shrink: 0;
+}
+
+.profile-stat-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.profile-stat-text {
+  display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 84px;
-  text-decoration: none;
+  min-width: 0;
 }
 
 .profile-stat-value {
   font-family: var(--sans);
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--ink);
 }
 
 .profile-stat-label {
   font-size: 12px;
   color: var(--ink-soft);
+}
+
+.profile-stat-link:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .profile-stat-link:hover .profile-stat-value {
@@ -713,7 +747,6 @@ textarea {
 
   .profile-stats {
     width: 100%;
-    justify-content: space-between;
   }
 }
 
@@ -796,6 +829,120 @@ textarea {
   font-size: 12px;
   color: var(--ink-soft);
   flex-shrink: 0;
+}
+
+.skills-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skills-focused-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.skills-focused-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.skill-chip {
+  /* TEMP: blue for visual testing — swap back to var(--gradient-brand)/#fff when done. */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 7px 7px 14px;
+  border-radius: var(--radius-pill);
+  background: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.skill-chip-remove {
+  /* TEMP: matches the blue chip above. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.skill-chip-remove:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.skills-columns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 700px) {
+  .skills-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skills-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+.skills-column-positive {
+  border-left-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 8%, var(--card));
+}
+
+.skills-column-focus {
+  border-left-color: var(--mark);
+  background: color-mix(in srgb, var(--mark) 8%, var(--card));
+}
+
+.skills-column h3 {
+  margin: 0;
+}
+
+.skills-column-positive .skill-row {
+  border-bottom: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
+}
+
+.skills-column-focus .skill-row {
+  border-bottom: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--mark) 14%, transparent);
+}
+
+.skills-empty {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
 }
 
 /* ---------- dashboard: going well / work on ---------- */

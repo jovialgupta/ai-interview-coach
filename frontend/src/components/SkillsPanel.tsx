@@ -33,10 +33,20 @@ function buildSkillRows(skills: string[], history: HistoryItem[]): SkillRow[] {
   })
 }
 
+/** The session behind the most recently scored answer — used as "the position
+ * of the last interview you took" since we have no separate role tracking. */
+function mostRecentSessionId(history: HistoryItem[]): string | null {
+  if (history.length === 0) return null
+  return history.reduce((latest, item) => (item.scored_at > latest.scored_at ? item : latest)).session_id
+}
+
+const STRONG_THRESHOLD = 3.5
+
 export default function SkillsPanel({ history }: SkillsPanelProps) {
   const [skills, setSkills] = useState<string[] | null>(null)
   const [hasResume, setHasResume] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [dismissedFocused, setDismissedFocused] = useState<string[]>([])
 
   useEffect(() => {
     getResume()
@@ -70,19 +80,79 @@ export default function SkillsPanel({ history }: SkillsPanelProps) {
   }
 
   const rows = buildSkillRows(skills, history)
+  const tested = rows.filter((row) => row.average !== null) as (SkillRow & { average: number })[]
+  const topSkills = tested.filter((row) => row.average >= STRONG_THRESHOLD).sort((a, b) => b.average - a.average)
+  const needsDevelopment = tested
+    .filter((row) => row.average < STRONG_THRESHOLD)
+    .sort((a, b) => a.average - b.average)
+
+  const recentSessionId = mostRecentSessionId(history)
+  const recentHistory = recentSessionId ? history.filter((h) => h.session_id === recentSessionId) : []
+  const focusedSkills = skills.filter((name) => {
+    if (dismissedFocused.includes(name)) return false
+    const needle = name.toLowerCase()
+    return recentHistory.some(
+      (h) => h.question_text.toLowerCase().includes(needle) || (h.question_targets ?? '').toLowerCase().includes(needle),
+    )
+  })
 
   return (
-    <div className="skills-grid">
-      {rows.map((row) => (
-        <div className="skill-row" key={row.name}>
-          <span className="skill-name">{row.name}</span>
-          {row.average !== null ? (
-            <MarkScore value={row.average} label={row.name} />
+    <div className="skills-panel">
+      {focusedSkills.length > 0 && (
+        <div className="skills-focused">
+          <span className="skills-focused-label">Focused skills</span>
+          <div className="skills-focused-chips">
+            {focusedSkills.map((name) => (
+              <span className="skill-chip" key={name}>
+                {name}
+                <button
+                  type="button"
+                  className="skill-chip-remove"
+                  onClick={() => setDismissedFocused((d) => [...d, name])}
+                  aria-label={`Hide ${name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="skills-columns">
+        <div className="skills-column skills-column-positive">
+          <h3>My top skills</h3>
+          {topSkills.length > 0 ? (
+            <div className="skills-grid">
+              {topSkills.map((row) => (
+                <div className="skill-row" key={row.name}>
+                  <span className="skill-name">{row.name}</span>
+                  <MarkScore value={row.average} label={row.name} />
+                </div>
+              ))}
+            </div>
           ) : (
-            <span className="skill-untested">Not tested yet</span>
+            <p className="skills-empty">
+              Will appear here once you've answered enough questions to score a skill above {STRONG_THRESHOLD}/5.
+            </p>
           )}
         </div>
-      ))}
+        <div className="skills-column skills-column-focus">
+          <h3>Needs development</h3>
+          {needsDevelopment.length > 0 ? (
+            <div className="skills-grid">
+              {needsDevelopment.map((row) => (
+                <div className="skill-row" key={row.name}>
+                  <span className="skill-name">{row.name}</span>
+                  <MarkScore value={row.average} label={row.name} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="skills-empty">Will appear here once a tested skill scores below {STRONG_THRESHOLD}/5.</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
