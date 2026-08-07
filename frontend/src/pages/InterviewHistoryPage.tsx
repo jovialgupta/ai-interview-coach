@@ -57,7 +57,7 @@ export default function InterviewHistoryPage() {
                     <td data-label="Type">{s.interview_type}</td>
                     <td data-label="Difficulty">{s.difficulty}</td>
                     <td data-label="Qs" className="num">
-                      {s.question_count}
+                      {s.question_count ?? 'In progress'}
                     </td>
                     <td data-label="Date" className="num">
                       {new Date(s.created_at).toLocaleDateString()}

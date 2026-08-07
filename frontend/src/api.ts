@@ -72,7 +72,6 @@ export function parseAttemptError(err: unknown): { message: string; attemptId?: 
 
 export type InterviewType = 'technical' | 'behavioural' | 'mixed'
 export type Difficulty = 'easy' | 'medium' | 'hard'
-export type QuestionCount = 3 | 5 | 10
 export type InputMode = 'typed' | 'spoken'
 
 export interface MeResponse {
@@ -102,7 +101,7 @@ export interface SessionOut {
   role: string
   difficulty: string
   interview_type: string
-  question_count: number
+  question_count: number | null
   created_at: string
   questions: QuestionOut[]
 }
@@ -112,7 +111,7 @@ export interface SessionListItem {
   role: string
   difficulty: string
   interview_type: string
-  question_count: number
+  question_count: number | null
   created_at: string
 }
 
@@ -184,7 +183,6 @@ export async function uploadResume(file: File): Promise<ResumeResponse> {
 export interface CreateSessionInput {
   role: string
   interview_type: InterviewType
-  question_count: QuestionCount
   difficulty: Difficulty
 }
 
@@ -200,6 +198,16 @@ export async function getSession(sessionId: string): Promise<SessionOut> {
 
 export async function listSessions(): Promise<SessionListItem[]> {
   const res = await client.get<SessionListItem[]>('/api/sessions')
+  return res.data
+}
+
+export async function getNextQuestion(sessionId: string): Promise<QuestionOut> {
+  const res = await client.post<QuestionOut>(`/api/sessions/${sessionId}/next`)
+  return res.data
+}
+
+export async function finishSession(sessionId: string): Promise<SessionOut> {
+  const res = await client.post<SessionOut>(`/api/sessions/${sessionId}/finish`)
   return res.data
 }
 

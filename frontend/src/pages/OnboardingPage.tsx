@@ -134,7 +134,6 @@ export default function OnboardingPage() {
           <button type="button" className="btn-primary" onClick={() => navigate('/dashboard')}>
             Looks right — continue
           </button>
-          <p className="page-subtitle">Wrong or missing something? Upload or paste again above.</p>
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiErrorMessage, createSession } from '../api'
-import type { Difficulty, InterviewType, QuestionCount } from '../api'
+import type { Difficulty, InterviewType } from '../api'
 import { ErrorBox } from './StateViews'
 
 const ROLE_OPTIONS = [
@@ -22,7 +22,6 @@ export default function StartInterviewForm() {
   const [customRole, setCustomRole] = useState('')
   const [interviewType, setInterviewType] = useState<InterviewType>('mixed')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
-  const [questionCount, setQuestionCount] = useState<QuestionCount>(5)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -40,7 +39,6 @@ export default function StartInterviewForm() {
         role: resolvedRole,
         interview_type: interviewType,
         difficulty,
-        question_count: questionCount,
       })
       navigate(`/session/${session.id}`)
     } catch (err) {
@@ -80,17 +78,6 @@ export default function StartInterviewForm() {
             <option value="mixed">Mixed</option>
             <option value="technical">Technical</option>
             <option value="behavioural">Behavioural</option>
-          </select>
-        </label>
-        <label>
-          Questions
-          <select
-            value={questionCount}
-            onChange={(e) => setQuestionCount(Number(e.target.value) as QuestionCount)}
-          >
-            <option value={3}>3</option>
-            <option value={5}>5</option>
-            <option value={10}>10</option>
           </select>
         </label>
         <label>

@@ -68,7 +68,6 @@ class AttemptScoreResponse(BaseModel):
 class CreateSessionRequest(BaseModel):
     role: str
     interview_type: Literal["technical", "behavioural", "mixed"] = "mixed"
-    question_count: Literal[3, 5, 10] = 5
     difficulty: Literal["easy", "medium", "hard"] = "medium"
 
 
@@ -86,7 +85,7 @@ class SessionOut(BaseModel):
     role: str
     difficulty: str
     interview_type: str
-    question_count: int
+    question_count: int | None
     created_at: datetime
     questions: list[QuestionOut] = []
 
@@ -96,7 +95,7 @@ class SessionListItem(BaseModel):
     role: str
     difficulty: str
     interview_type: str
-    question_count: int
+    question_count: int | None
     created_at: datetime
 
 

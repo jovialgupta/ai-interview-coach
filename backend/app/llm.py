@@ -18,11 +18,17 @@ def _strip_code_fences(text: str) -> str:
     return _FENCE_RE.sub("", text.strip()).strip()
 
 
-async def call_llm_json(prompt: str, temperature: float, max_tokens: int = 2000) -> dict:
+async def call_llm_json(prompt: str, temperature: float, max_tokens: int = 8000) -> dict:
     """Calls the LLM expecting a JSON-only response. Retries the call once on any
     failure — a bad/non-JSON response, or the API call itself raising (network
     error, timeout, rate limit, auth) — then raises a 502 with a user-readable
-    message instead of letting the raw exception surface as a 500."""
+    message instead of letting the raw exception surface as a 500.
+
+    max_tokens must leave headroom beyond the JSON answer itself: this model
+    spends part of max_output_tokens on internal "thinking" tokens before
+    writing the response, so a tight budget can be fully consumed by thinking
+    and return an empty response (finish_reason=MAX_TOKENS) with no error raised.
+    """
     last_error: Exception | None = None
     for attempt in range(2):
         try:
@@ -35,9 +41,13 @@ async def call_llm_json(prompt: str, temperature: float, max_tokens: int = 2000)
                     http_options=types.HttpOptions(timeout=15000),
                 ),
             )
+            if not response.text:
+                finish_reason = response.candidates[0].finish_reason if response.candidates else None
+                raise ValueError(f"Empty response from model (finish_reason={finish_reason})")
             cleaned = _strip_code_fences(response.text)
             return json.loads(cleaned)
         except Exception as exc:  # noqa: BLE001 - any failure here is retried once, then surfaced as 502
+            print(f"call_llm_json attempt {attempt + 1} failed: {exc!r}", flush=True)
             last_error = exc
             continue
 

@@ -4,11 +4,13 @@ import {
   DIMENSION_LABELS,
   apiErrorMessage,
   createAttempt,
+  finishSession,
+  getNextQuestion,
   getSession,
   parseAttemptError,
   rescoreAttempt,
 } from '../api'
-import type { AttemptScoreResponse, InputMode, SessionOut } from '../api'
+import type { AttemptScoreResponse, InputMode, QuestionOut, SessionOut } from '../api'
 import { computeDeliveryStats } from '../delivery'
 import EvidenceQuote from '../components/EvidenceQuote'
 import MarkScore from '../components/MarkScore'
@@ -30,13 +32,18 @@ function initialState(): QuestionState {
   return { answer: '', inputMode: 'typed', status: 'idle', speakingSeconds: 0 }
 }
 
+const DIMENSION_KEYS = Object.keys(DIMENSION_LABELS) as (keyof typeof DIMENSION_LABELS)[]
+
 export default function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const [session, setSession] = useState<SessionOut | null>(null)
+  const [questions, setQuestions] = useState<QuestionOut[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [answers, setAnswers] = useState<Record<string, QuestionState>>({})
   const [currentIndex, setCurrentIndex] = useState(0)
   const [sessionDone, setSessionDone] = useState(false)
+  const [fetchingNext, setFetchingNext] = useState(false)
+  const [nextError, setNextError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const speechRef = useRef<SpeechController | null>(null)
   const recordingStartedAtRef = useRef<number | null>(null)
@@ -47,6 +54,7 @@ export default function SessionPage() {
     getSession(sessionId)
       .then((s) => {
         setSession(s)
+        setQuestions(s.questions)
         setAnswers(
           Object.fromEntries(
             s.questions.map((q) => [
@@ -64,11 +72,11 @@ export default function SessionPage() {
             ]),
           ),
         )
-        const firstUnanswered = s.questions.findIndex((q) => !q.attempt)
-        if (firstUnanswered === -1) {
+        if (s.question_count !== null) {
           setSessionDone(true)
         } else {
-          setCurrentIndex(firstUnanswered)
+          const firstUnanswered = s.questions.findIndex((q) => !q.attempt)
+          setCurrentIndex(firstUnanswered === -1 ? Math.max(s.questions.length - 1, 0) : firstUnanswered)
         }
       })
       .catch((err) => setLoadError(apiErrorMessage(err, 'Could not load this session.')))
@@ -128,24 +136,13 @@ export default function SessionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, sessionDone])
 
-  function advance(fromIndex: number) {
-    if (!session) return
-    if (fromIndex >= session.questions.length - 1) {
-      setSessionDone(true)
-    } else {
-      setCurrentIndex(fromIndex + 1)
-    }
-  }
-
   async function handleSubmit(questionId: string) {
     const current = answers[questionId]
     if (!current || !current.answer.trim()) return
-    const submittedIndex = currentIndex
     updateAnswer(questionId, { status: 'submitting', errorMessage: undefined })
     try {
       const score = await createAttempt(questionId, current.answer, current.inputMode)
       updateAnswer(questionId, { status: 'scored', score, attemptId: score.attempt_id })
-      advance(submittedIndex)
     } catch (err) {
       const { message, attemptId } = parseAttemptError(err)
       updateAnswer(questionId, { status: 'error', errorMessage: message, attemptId })
@@ -155,15 +152,44 @@ export default function SessionPage() {
   async function handleRetryScoring(questionId: string) {
     const current = answers[questionId]
     if (!current?.attemptId) return
-    const submittedIndex = currentIndex
     updateAnswer(questionId, { status: 'submitting', errorMessage: undefined })
     try {
       const score = await rescoreAttempt(current.attemptId)
       updateAnswer(questionId, { status: 'scored', score })
-      advance(submittedIndex)
     } catch (err) {
       const { message, attemptId } = parseAttemptError(err)
       updateAnswer(questionId, { status: 'error', errorMessage: message, attemptId: attemptId ?? current.attemptId })
+    }
+  }
+
+  async function fetchNext() {
+    if (!sessionId) return
+    setFetchingNext(true)
+    setNextError(null)
+    try {
+      const question = await getNextQuestion(sessionId)
+      setQuestions((prev) => [...prev, question])
+      setAnswers((prev) => ({ ...prev, [question.id]: initialState() }))
+      setCurrentIndex((prev) => prev + 1)
+    } catch (err) {
+      setNextError(apiErrorMessage(err, 'Could not generate the next question. Please try again.'))
+    } finally {
+      setFetchingNext(false)
+    }
+  }
+
+  async function finishCurrentSession() {
+    if (!sessionId) return
+    setFetchingNext(true)
+    setNextError(null)
+    try {
+      const updated = await finishSession(sessionId)
+      setSession(updated)
+      setSessionDone(true)
+    } catch (err) {
+      setNextError(apiErrorMessage(err, 'Could not finish the session. Please try again.'))
+    } finally {
+      setFetchingNext(false)
     }
   }
 
@@ -171,13 +197,12 @@ export default function SessionPage() {
   if (!session) return <Loading label="Loading session…" />
 
   if (sessionDone) {
-    const scored = session.questions
+    const scored = questions
       .map((q) => answers[q.id])
-      .filter((a): a is QuestionState & { score: AttemptScoreResponse } => a.status === 'scored' && !!a.score)
+      .filter((a): a is QuestionState & { score: AttemptScoreResponse } => a?.status === 'scored' && !!a.score)
 
-    const dimensionKeys = Object.keys(DIMENSION_LABELS) as (keyof typeof DIMENSION_LABELS)[]
     const averages = Object.fromEntries(
-      dimensionKeys.map((key) => [
+      DIMENSION_KEYS.map((key) => [
         key,
         scored.length === 0 ? 0 : scored.reduce((sum, a) => sum + a.score[key], 0) / scored.length,
       ]),
@@ -195,10 +220,10 @@ export default function SessionPage() {
         <section className="panel">
           <h3>Session summary</h3>
           <p className="page-subtitle">
-            Average across {scored.length} of {session.questions.length} answered questions.
+            Average across {scored.length} of {questions.length} answered questions.
           </p>
           <div className="insight-marks">
-            {dimensionKeys.map((key) => (
+            {DIMENSION_KEYS.map((key) => (
               <div className="insight-mark" key={key}>
                 <span className="insight-mark-label">{DIMENSION_LABELS[key]}</span>
                 <MarkScore value={averages[key]} label={DIMENSION_LABELS[key]} />
@@ -207,7 +232,7 @@ export default function SessionPage() {
           </div>
         </section>
 
-        {session.questions.map((q, i) => {
+        {questions.map((q, i) => {
           const a = answers[q.id]
           if (a?.status !== 'scored' || !a.score) return null
           const delivery = a.inputMode === 'spoken' ? computeDeliveryStats(a.answer, a.speakingSeconds) : null
@@ -217,7 +242,7 @@ export default function SessionPage() {
                 Q{i + 1}. {q.text}
               </h3>
               <div className="score-reveal">
-                {dimensionKeys.map((key) => (
+                {DIMENSION_KEYS.map((key) => (
                   <div className="score-dimension" key={key}>
                     <div className="score-dimension-head">
                       <span>{DIMENSION_LABELS[key]}</span>
@@ -251,9 +276,13 @@ export default function SessionPage() {
     )
   }
 
-  const question = session.questions[currentIndex]
+  const question = questions[currentIndex]
   const state = answers[question.id] ?? initialState()
   const disabled = state.status === 'submitting' || state.status === 'scored'
+  const delivery =
+    state.status === 'scored' && state.inputMode === 'spoken'
+      ? computeDeliveryStats(state.answer, state.speakingSeconds)
+      : null
 
   return (
     <div className="page">
@@ -262,88 +291,119 @@ export default function SessionPage() {
         <span className="session-header-meta">
           {session.interview_type} · {session.difficulty}
         </span>
-        <span className="session-counter">
-          Question {currentIndex + 1} / {session.questions.length}
-        </span>
+        <span className="session-counter">Question {currentIndex + 1}</span>
       </div>
 
       <div className="panel question-panel">
         <h3>{question.text}</h3>
         {question.targets && <p className="question-targets">Targets: {question.targets}</p>}
 
-        <textarea
-          rows={6}
-          value={state.answer}
-          disabled={disabled}
-          onChange={(e) => updateAnswer(question.id, { answer: e.target.value })}
-          placeholder="Type your answer here..."
-        />
+        {state.status === 'scored' && state.score ? (
+          <>
+            <div className="score-reveal">
+              {DIMENSION_KEYS.map((key) => (
+                <div className="score-dimension" key={key}>
+                  <div className="score-dimension-head">
+                    <span>{DIMENSION_LABELS[key]}</span>
+                    <MarkScore value={state.score![key]} label={DIMENSION_LABELS[key]} />
+                  </div>
+                  <EvidenceQuote text={state.score!.evidence[key]} />
+                </div>
+              ))}
+              <p className="feedback">{state.score.feedback}</p>
+              {delivery && (
+                <p className="delivery-note">
+                  {delivery.wpm} wpm · ~{delivery.fillerCount} filler word{delivery.fillerCount === 1 ? '' : 's'}
+                </p>
+              )}
+            </div>
 
-        <div className="input-mode-row">
-          <label className="radio-label">
-            <input
-              type="radio"
-              name={`mode-${question.id}`}
-              checked={state.inputMode === 'typed'}
-              disabled={disabled}
-              onChange={() => updateAnswer(question.id, { inputMode: 'typed' })}
-            />
-            Typed
-          </label>
-          <label className="radio-label">
-            <input
-              type="radio"
-              name={`mode-${question.id}`}
-              checked={state.inputMode === 'spoken'}
-              disabled={disabled}
-              onChange={() => updateAnswer(question.id, { inputMode: 'spoken' })}
-            />
-            Spoken (transcript)
-          </label>
-        </div>
+            {nextError && <ErrorBox message={nextError} />}
 
-        {state.inputMode === 'spoken' && (
-          <div className="recording-row">
-            {speechSupported ? (
-              <>
-                <button
-                  type="button"
-                  className={isRecording ? 'btn-primary recording' : 'btn-primary'}
-                  disabled={disabled}
-                  onClick={() => (isRecording ? stopRecording() : startRecording(question.id))}
-                >
-                  {isRecording ? 'Stop recording' : 'Start recording'}
-                </button>
-                {isRecording && <span className="recording-indicator">Listening…</span>}
-              </>
-            ) : (
-              <p className="page-subtitle">
-                Voice input isn't supported in this browser — you can still type your answer.
-              </p>
-            )}
-          </div>
-        )}
-
-        {state.status !== 'scored' && (
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={disabled || !state.answer.trim()}
-            onClick={() => handleSubmit(question.id)}
-          >
-            {state.status === 'submitting' ? 'Scoring…' : 'Submit answer'}
-          </button>
-        )}
-
-        {state.status === 'error' && (
-          <div>
-            <ErrorBox message={state.errorMessage ?? 'Something went wrong.'} />
-            {state.attemptId && (
-              <button type="button" className="btn-link" onClick={() => handleRetryScoring(question.id)}>
-                Retry scoring
+            <div className="input-mode-row">
+              <button type="button" className="btn-primary" disabled={fetchingNext} onClick={fetchNext}>
+                {fetchingNext ? 'Generating…' : 'Next question'}
               </button>
+              <button type="button" className="btn-link" disabled={fetchingNext} onClick={finishCurrentSession}>
+                Finish session
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <textarea
+              rows={6}
+              value={state.answer}
+              disabled={disabled}
+              onChange={(e) => updateAnswer(question.id, { answer: e.target.value })}
+              placeholder="Type your answer here..."
+            />
+
+            <div className="input-mode-row">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name={`mode-${question.id}`}
+                  checked={state.inputMode === 'typed'}
+                  disabled={disabled}
+                  onChange={() => updateAnswer(question.id, { inputMode: 'typed' })}
+                />
+                Typed
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name={`mode-${question.id}`}
+                  checked={state.inputMode === 'spoken'}
+                  disabled={disabled}
+                  onChange={() => updateAnswer(question.id, { inputMode: 'spoken' })}
+                />
+                Spoken (transcript)
+              </label>
+            </div>
+
+            {state.inputMode === 'spoken' && (
+              <div className="recording-row">
+                {speechSupported ? (
+                  <>
+                    <button
+                      type="button"
+                      className={isRecording ? 'btn-primary recording' : 'btn-primary'}
+                      disabled={disabled}
+                      onClick={() => (isRecording ? stopRecording() : startRecording(question.id))}
+                    >
+                      {isRecording ? 'Stop recording' : 'Start recording'}
+                    </button>
+                    {isRecording && <span className="recording-indicator">Listening…</span>}
+                  </>
+                ) : (
+                  <p className="page-subtitle">
+                    Voice input isn't supported in this browser — you can still type your answer.
+                  </p>
+                )}
+              </div>
             )}
-          </div>
+
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={disabled || !state.answer.trim()}
+              onClick={() => handleSubmit(question.id)}
+            >
+              {state.status === 'submitting' ? 'Scoring…' : 'Submit answer'}
+            </button>
+
+            {state.status === 'error' && (
+              <div>
+                <ErrorBox message={state.errorMessage ?? 'Something went wrong.'} />
+                {state.attemptId && (
+                  <button type="button" className="btn-link" onClick={() => handleRetryScoring(question.id)}>
+                    Retry scoring
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
