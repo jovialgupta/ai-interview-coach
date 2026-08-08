@@ -19,8 +19,6 @@ const DIMENSIONS = [
   },
 ]
 
-const STACK = ['React', 'TypeScript', 'FastAPI', 'PostgreSQL', 'Gemini']
-
 export default function AboutPage() {
   return (
     <div className="page landing">
@@ -56,24 +54,6 @@ export default function AboutPage() {
               <h3>{dimension.title}</h3>
               <p>{dimension.body}</p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="section-head">
-          <span className="section-eyebrow">Background</span>
-          <h2>Stack and background</h2>
-          <p>
-            This is a personal project built by a third-year CS student preparing for campus
-            placements — not a company or a funded product.
-          </p>
-        </div>
-        <div className="tech-pill-row">
-          {STACK.map((tech) => (
-            <span className="tech-pill" key={tech}>
-              {tech}
-            </span>
           ))}
         </div>
       </section>
